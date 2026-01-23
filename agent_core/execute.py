@@ -3,6 +3,7 @@ import asyncio
 from agent_utils.registry import FUNCTION_REGISTRY
 from agent_core.utils import load_metrics
 from agent_core.debug import request
+from agent_db.models import insert_metric
 
 
 REQUIRED_FUNCTIONS = load_metrics(request)
@@ -10,16 +11,20 @@ REQUIRED_FUNCTIONS = load_metrics(request)
 async def runner(fn, interval):
     while True:
         try:
-            val = await fn()
+            val = await get_fun(fn)()
 
-            print(val)
         except Exception as e:
             print(f"Error in {fn.__name__}: {e}")
+            val = "UNAVAILABLE"
+
+        print(val)
+        insert_metric(fn,val)
+
         await asyncio.sleep(interval)
 
 async def gather():
     running = [
-        asyncio.create_task(runner(get_fun(fn), interval))
+        asyncio.create_task(runner(fn, interval))
         for fn, interval in REQUIRED_FUNCTIONS.items()
     ]
     await asyncio.gather(*running)

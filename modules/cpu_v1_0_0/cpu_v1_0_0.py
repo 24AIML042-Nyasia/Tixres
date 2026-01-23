@@ -13,6 +13,11 @@ class CpuModule(BaseModule):
             "cores": self.get_cores
         }
 
+        self.metric_datatype = {
+            "usage" : "float",
+            "cores" : "int"
+        }
+
     async def get_usage(self):
         return "42%"
 
