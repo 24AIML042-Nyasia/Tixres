@@ -1,3 +1,5 @@
+import asyncio
+
 from modules.base import BaseModule
 
 class CpuModule(BaseModule):
@@ -11,10 +13,10 @@ class CpuModule(BaseModule):
             "cores": self.get_cores
         }
 
-    def get_usage(self):
+    async def get_usage(self):
         return "42%"
 
-    def get_cores(self):
+    async def get_cores(self):
         return 8
 
     def register(self):
