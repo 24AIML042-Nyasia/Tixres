@@ -1,8 +1,12 @@
 from abc import ABC, abstractmethod
 
-class BaseMetric(ABC):
-    NAME: str
+class BaseModule(ABC):
+    name: str
+    version: str
+    description: str
+    functions: dict
 
     @abstractmethod
-    def collect(self):
+    def register(self) -> dict:
+        """Return function registry"""
         pass

@@ -1,0 +1,9 @@
+{
+    "registred_at" : "",
+    "hostname" : "",
+    "agentId" : "",
+    "os" : "",
+    "agent_version" : "",
+    "modules" : [""],
+    "metrics" : [""]
+}
