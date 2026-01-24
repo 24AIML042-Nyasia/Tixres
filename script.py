@@ -7,9 +7,9 @@ from agent_db.models import fetch_unsent
 
 # migrate()
 
-# startup()
+startup()
 
-# asyncio.run(gather())
+asyncio.run(gather())
 
 rows = fetch_unsent("metric_numeric")
 

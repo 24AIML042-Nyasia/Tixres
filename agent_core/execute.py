@@ -4,9 +4,12 @@ from agent_utils.registry import FUNCTION_REGISTRY
 from agent_core.utils import load_metrics
 from agent_core.debug import request
 from agent_db.models import insert_metric
+from settings import DEBUG
 
 
 REQUIRED_FUNCTIONS = load_metrics(request)
+
+met = []
 
 async def runner(fn, interval):
     while True:
@@ -14,11 +17,16 @@ async def runner(fn, interval):
             val = await get_fun(fn)()
 
         except Exception as e:
-            print(f"Error in {fn.__name__}: {e}")
+            # print(f"Error in {fn.__name__}: {e}")
             val = "UNAVAILABLE"
 
-        print(val)
-        insert_metric(fn,val)
+        if(DEBUG):
+            print(val)
+            met.append(fn)
+        else:
+            insert_metric(fn,val)
+
+        print(all([m in met for m in list(REQUIRED_FUNCTIONS.keys())]))
 
         await asyncio.sleep(interval)
 

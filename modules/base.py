@@ -5,7 +5,6 @@ class BaseModule(ABC):
     version: str
     description: str
     functions: dict
-    metric_datatype : dict
 
     @abstractmethod
     def register(self) -> dict:

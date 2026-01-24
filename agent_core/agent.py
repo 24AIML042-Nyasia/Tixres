@@ -11,7 +11,7 @@ def startup():
 
     # print(val_modules(request))
 
-    # print_registries()
+    print_registries()
     
 
     
