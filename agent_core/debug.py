@@ -21,22 +21,19 @@ request = {
         'cpu_v1.0.0.usage_overall': 5,
         'cpu_v1.0.0.usage_per_core': 10,
         'cpu_v1.0.0.load_average': 15,
-        'cpu_v1.0.0.temperature': 30,
-        'cpu_v1.0.0.core_count': 3600,  # Once per hour (static)
         'cpu_v1.0.0.frequency': 10,
         
         # Memory Module
         'memory_v1.0.0.ram': 5,
         'memory_v1.0.0.swap': 10,
+        'memory_v1.0.0.cached_vs_free': 15,
         
         # Disk Module
         'disk_v1.0.0.usage': 60,
         'disk_v1.0.0.io': 5,
-        'disk_v1.0.0.partitions': 300,  # Every 5 minutes
         
         # System Module
         'system_v1.0.0.uptime': 60,
-        'system_v1.0.0.info': 3600,  # Once per hour (static)
         'system_v1.0.0.users': 30,
         'system_v1.0.0.process_count': 10,
         
@@ -49,10 +46,9 @@ request = {
         # Network Module
         'network_v1.0.0.io': 5,
         'network_v1.0.0.connections': 10,
+        'network_v1.0.0.errors': 30,
         
         # Temperature Module
-        'temperature_v1.0.0.sensors': 30,
-        'temperature_v1.0.0.fans': 30,
         'temperature_v1.0.0.battery': 60
     }
 }

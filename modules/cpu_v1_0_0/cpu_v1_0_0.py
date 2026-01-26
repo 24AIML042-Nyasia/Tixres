@@ -1,30 +1,12 @@
-# # import asyncio
-
-# from modules.base import BaseModule
-
-# class CpuModule(BaseModule):
-#     name = "cpu"
-#     version = "1.0.0"
-#     description = "CPU related metrics"
-
-#     def __init__(self):
-#         self.functions = {
-#             "usage": self.get_usage,
-#             "cores": self.get_cores
-#         }
-
-#     async def get_usage(self):
-#         return "42%"
-
-#     async def get_cores(self):
-#         return 8
-
-#     def register(self):
-#         return self.functions
-
-# modules/cpu_v1_0_0.py
 import psutil
+import platform
+import time
 from modules.base import BaseModule
+
+
+# ============================================================================
+# CPU MODULE
+# ============================================================================
 
 class CpuModule(BaseModule):
     name = "cpu"
@@ -103,50 +85,57 @@ class CpuModule(BaseModule):
         return self.functions
 
 
-# modules/memory_v1_0_0.py
-import psutil
-from modules.base import BaseModule
+# ============================================================================
+# MEMORY MODULE
+# ============================================================================
 
 class MemoryModule(BaseModule):
     name = "memory"
     version = "1.0.0"
-    description = "RAM and swap memory metrics"
+    description = "Memory (RAM and Swap) metrics"
 
     def __init__(self):
         self.functions = {
             "ram": self.get_ram,
-            "swap": self.get_swap
+            "swap": self.get_swap,
+            "cached_vs_free": self.get_cached_vs_free
         }
 
     async def get_ram(self) -> dict:
-        """RAM metrics in bytes and percentage"""
+        """RAM usage metrics"""
         mem = psutil.virtual_memory()
         return {
-            "total": mem.total,
-            "used": mem.used,
-            "free": mem.available,
-            "percent": mem.percent,
-            "cached": getattr(mem, 'cached', 0),
-            "buffers": getattr(mem, 'buffers', 0)
+            "percent": round(mem.percent, 1),
+            "used_gb": round(mem.used / (1024**3), 2),
+            "total_gb": round(mem.total / (1024**3), 2),
+            "available_gb": round(mem.available / (1024**3), 2)
         }
 
     async def get_swap(self) -> dict:
-        """Swap memory metrics in bytes and percentage"""
+        """Swap usage metrics"""
         swap = psutil.swap_memory()
         return {
-            "total": swap.total,
-            "used": swap.used,
-            "free": swap.free,
-            "percent": swap.percent
+            "percent": round(swap.percent, 1),
+            "used_gb": round(swap.used / (1024**3), 2),
+            "total_gb": round(swap.total / (1024**3), 2)
+        }
+
+    async def get_cached_vs_free(self) -> dict:
+        """Cached vs Free memory breakdown"""
+        mem = psutil.virtual_memory()
+        return {
+            "cached_gb": round(getattr(mem, 'cached', 0) / (1024**3), 2),
+            "free_gb": round(mem.free / (1024**3), 2),
+            "buffers_gb": round(getattr(mem, 'buffers', 0) / (1024**3), 2)
         }
 
     def register(self):
         return self.functions
 
 
-# modules/disk_v1_0_0.py
-import psutil
-from modules.base import BaseModule
+# ============================================================================
+# DISK MODULE
+# ============================================================================
 
 class DiskModule(BaseModule):
     name = "disk"
@@ -157,92 +146,150 @@ class DiskModule(BaseModule):
         self.functions = {
             "usage": self.get_usage,
             "io": self.get_io,
-            "partitions": self.get_partitions
+            "partitions": self.get_partitions,
+            "io_wait": self.get_io_wait
         }
-        self._root_partition = self._get_root_partition()
-
-    def _get_root_partition(self) -> str:
-        """Get the root partition path"""
-        try:
-            partitions = psutil.disk_partitions()
-            for part in partitions:
-                if part.mountpoint in ['/', 'C:\\', 'C:/']:
-                    return part.mountpoint
-            return partitions[0].mountpoint if partitions else '/'
-        except (IndexError, PermissionError):
-            return '/'
+        self._last_io = None
 
     async def get_usage(self) -> dict:
-        """Disk usage for root partition in bytes and percentage"""
-        try:
-            usage = psutil.disk_usage(self._root_partition)
-            return {
-                "total": usage.total,
-                "used": usage.used,
-                "free": usage.free,
-                "percent": usage.percent
-            }
-        except (PermissionError, OSError):
-            return {"total": 0, "used": 0, "free": 0, "percent": 0.0}
+        """Disk usage per main partition"""
+        partitions = psutil.disk_partitions()
+        usage_data = {}
+        
+        for partition in partitions:
+            if partition.fstype:
+                try:
+                    usage = psutil.disk_usage(partition.mountpoint)
+                    usage_data[partition.mountpoint] = {
+                        "percent": round(usage.percent, 1),
+                        "used_gb": round(usage.used / (1024**3), 2),
+                        "total_gb": round(usage.total / (1024**3), 2)
+                    }
+                except PermissionError:
+                    continue
+        
+        return usage_data
 
     async def get_io(self) -> dict:
-        """Disk I/O statistics"""
-        try:
-            io = psutil.disk_io_counters()
-            return {
-                "read_bytes": io.read_bytes,
-                "write_bytes": io.write_bytes,
-                "read_count": io.read_count,
-                "write_count": io.write_count,
-                "read_time_ms": io.read_time,
-                "write_time_ms": io.write_time
-            }
-        except (AttributeError, RuntimeError):
-            return {
-                "read_bytes": 0,
-                "write_bytes": 0,
-                "read_count": 0,
-                "write_count": 0,
-                "read_time_ms": 0,
-                "write_time_ms": 0
-            }
+        """Disk read/write speeds in MB/s"""
+        io_current = psutil.disk_io_counters()
+        
+        if self._last_io is None:
+            self._last_io = io_current
+            return {"read_mb_s": 0.0, "write_mb_s": 0.0}
+        
+        read_bytes = io_current.read_bytes - self._last_io.read_bytes
+        write_bytes = io_current.write_bytes - self._last_io.write_bytes
+        
+        self._last_io = io_current
+        
+        return {
+            "read_mb_s": round(read_bytes / (1024**2), 2),
+            "write_mb_s": round(write_bytes / (1024**2), 2)
+        }
 
-    async def get_partitions(self) -> dict:
-        """All mounted partitions with usage"""
+    async def get_partitions(self) -> list:
+        """List of disk partitions"""
+        partitions = psutil.disk_partitions()
+        return [
+            {
+                "device": p.device,
+                "mountpoint": p.mountpoint,
+                "fstype": p.fstype,
+                "opts": p.opts
+            }
+            for p in partitions
+        ]
+
+    async def get_io_wait(self) -> float:
+        """I/O wait time percentage (Linux only)"""
         try:
-            parts = psutil.disk_partitions()
-            result = {}
-            for p in parts:
-                try:
-                    usage = psutil.disk_usage(p.mountpoint)
-                    result[p.mountpoint] = {
-                        "device": p.device,
-                        "fstype": p.fstype,
-                        "total": usage.total,
-                        "used": usage.used,
-                        "free": usage.free,
-                        "percent": usage.percent
-                    }
-                except (PermissionError, OSError):
-                    continue
-            return result
-        except (PermissionError, OSError):
-            return {}
+            with open('/proc/stat', 'r') as f:
+                for line in f:
+                    if line.startswith('cpu '):
+                        fields = line.split()
+                        iowait = int(fields[5])
+                        total = sum(int(x) for x in fields[1:])
+                        return round((iowait / total) * 100, 2) if total > 0 else 0.0
+        except (FileNotFoundError, IndexError, ValueError):
+            return -1.0
+        return -1.0
 
     def register(self):
         return self.functions
 
 
-# modules/system_v1_0_0.py
-import psutil
-import platform
-from datetime import datetime
-from modules.base import BaseModule
+# ============================================================================
+# NETWORK MODULE
+# ============================================================================
+
+class NetworkModule(BaseModule):
+    name = "network"
+    version = "1.0.0"
+    description = "Network I/O, connections, and error metrics"
+
+    def __init__(self):
+        self.functions = {
+            "io": self.get_io,
+            "connections": self.get_connections,
+            "errors": self.get_errors
+        }
+        self._last_net = None
+
+    async def get_io(self) -> dict:
+        """Network upload/download speeds in MB/s"""
+        net_current = psutil.net_io_counters()
+        
+        if self._last_net is None:
+            self._last_net = net_current
+            return {"upload_mb_s": 0.0, "download_mb_s": 0.0}
+        
+        sent_bytes = net_current.bytes_sent - self._last_net.bytes_sent
+        recv_bytes = net_current.bytes_recv - self._last_net.bytes_recv
+        
+        self._last_net = net_current
+        
+        return {
+            "upload_mb_s": round(sent_bytes / (1024**2), 2),
+            "download_mb_s": round(recv_bytes / (1024**2), 2)
+        }
+
+    async def get_connections(self) -> dict:
+        """Active network connections count by status"""
+        connections = psutil.net_connections(kind='inet')
+        status_counts = {}
+        
+        for conn in connections:
+            status = conn.status if conn.status else 'UNKNOWN'
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        return {
+            "total": len(connections),
+            "by_status": status_counts
+        }
+
+    async def get_errors(self) -> dict:
+        """Packet errors and drops"""
+        net = psutil.net_io_counters()
+        return {
+            "errors_in": net.errin,
+            "errors_out": net.errout,
+            "drops_in": net.dropin,
+            "drops_out": net.dropout
+        }
+
+    def register(self):
+        return self.functions
+
+
+# ============================================================================
+# SYSTEM MODULE
+# ============================================================================
 
 class SystemModule(BaseModule):
     name = "system"
     version = "1.0.0"
-    description = "System health, uptime, and OS information"
+    description = "System health, uptime, and information"
 
     def __init__(self):
         self.functions = {
@@ -253,52 +300,59 @@ class SystemModule(BaseModule):
         }
 
     async def get_uptime(self) -> dict:
-        """System uptime information"""
-        try:
-            boot_time = psutil.boot_time()
-            uptime_seconds = int(datetime.now().timestamp() - boot_time)
-            return {
-                "seconds": uptime_seconds,
-                "boot_time": datetime.fromtimestamp(boot_time).isoformat()
-            }
-        except (OSError, ValueError):
-            return {"seconds": 0, "boot_time": ""}
-
-    async def get_info(self) -> dict:
-        """Operating system information"""
+        """System uptime in seconds and formatted"""
+        boot_time = psutil.boot_time()
+        uptime_seconds = int(time.time() - boot_time)
+        
+        days = uptime_seconds // 86400
+        hours = (uptime_seconds % 86400) // 3600
+        minutes = (uptime_seconds % 3600) // 60
+        
         return {
-            "os": platform.system(),
-            "version": platform.release(),
-            "hostname": platform.node(),
-            "architecture": platform.machine()
+            "seconds": uptime_seconds,
+            "formatted": f"{days}d {hours}h {minutes}m"
         }
 
-    async def get_users(self) -> int:
-        """Number of logged-in users"""
-        try:
-            return len(psutil.users())
-        except (OSError, RuntimeError):
-            return 0
+    async def get_info(self) -> dict:
+        """OS and kernel version information"""
+        uname = platform.uname()
+        return {
+            "system": uname.system,
+            "release": uname.release,
+            "version": uname.version,
+            "machine": uname.machine,
+            "processor": uname.processor or "Unknown"
+        }
+
+    async def get_users(self) -> list:
+        """Currently logged in users"""
+        users = psutil.users()
+        return [
+            {
+                "name": u.name,
+                "terminal": u.terminal,
+                "host": u.host,
+                "started": u.started
+            }
+            for u in users
+        ]
 
     async def get_process_count(self) -> int:
         """Total number of running processes"""
-        try:
-            return len(psutil.pids())
-        except (OSError, RuntimeError):
-            return 0
+        return len(psutil.pids())
 
     def register(self):
         return self.functions
 
 
-# modules/process_v1_0_0.py
-import psutil
-from modules.base import BaseModule
+# ============================================================================
+# PROCESS MODULE
+# ============================================================================
 
 class ProcessModule(BaseModule):
     name = "process"
     version = "1.0.0"
-    description = "Process-level monitoring metrics"
+    description = "Top processes by CPU and memory usage"
 
     def __init__(self):
         self.functions = {
@@ -308,143 +362,71 @@ class ProcessModule(BaseModule):
             "total_threads": self.get_total_threads
         }
 
-    async def get_top_cpu(self) -> dict:
-        """Top 5 CPU-consuming processes"""
-        try:
-            procs = []
-            for p in psutil.process_iter(['name', 'pid', 'cpu_percent']):
-                try:
-                    procs.append(p.info)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-            
-            top = sorted(procs, key=lambda x: x.get('cpu_percent', 0), reverse=True)[:5]
-            return {
-                i: {
-                    "name": p['name'],
-                    "pid": p['pid'],
-                    "cpu_percent": round(p.get('cpu_percent', 0), 1)
-                }
-                for i, p in enumerate(top)
-            }
-        except (OSError, RuntimeError):
-            return {}
+    async def get_top_cpu(self, count: int = 5) -> list:
+        """Top N processes by CPU usage"""
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
+            try:
+                processes.append({
+                    "pid": proc.info['pid'],
+                    "name": proc.info['name'],
+                    "cpu_percent": proc.info['cpu_percent']
+                })
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        processes.sort(key=lambda x: x['cpu_percent'] or 0, reverse=True)
+        return processes[:count]
 
-    async def get_top_memory(self) -> dict:
-        """Top 5 memory-consuming processes"""
-        try:
-            procs = []
-            for p in psutil.process_iter(['name', 'pid', 'memory_info']):
-                try:
-                    info = p.info
-                    info['mem_mb'] = info['memory_info'].rss / (1024 * 1024)
-                    procs.append(info)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-            
-            top = sorted(procs, key=lambda x: x.get('mem_mb', 0), reverse=True)[:5]
-            return {
-                i: {
-                    "name": p['name'],
-                    "pid": p['pid'],
-                    "memory_mb": round(p.get('mem_mb', 0), 1)
-                }
-                for i, p in enumerate(top)
-            }
-        except (OSError, RuntimeError):
-            return {}
+    async def get_top_memory(self, count: int = 5) -> list:
+        """Top N processes by memory usage"""
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'memory_percent']):
+            try:
+                processes.append({
+                    "pid": proc.info['pid'],
+                    "name": proc.info['name'],
+                    "memory_percent": round(proc.info['memory_percent'], 2)
+                })
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        
+        processes.sort(key=lambda x: x['memory_percent'] or 0, reverse=True)
+        return processes[:count]
 
     async def get_zombie_count(self) -> int:
-        """Number of zombie processes"""
-        try:
-            count = 0
-            for p in psutil.process_iter(['status']):
-                try:
-                    if p.info['status'] == psutil.STATUS_ZOMBIE:
-                        count += 1
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-            return count
-        except (OSError, RuntimeError):
-            return 0
+        """Count of zombie processes"""
+        count = 0
+        for proc in psutil.process_iter(['status']):
+            try:
+                if proc.info['status'] == psutil.STATUS_ZOMBIE:
+                    count += 1
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return count
 
     async def get_total_threads(self) -> int:
-        """Total number of threads across all processes"""
-        try:
-            total = 0
-            for p in psutil.process_iter(['num_threads']):
-                try:
-                    total += p.info.get('num_threads', 0)
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    pass
-            return total
-        except (OSError, RuntimeError):
-            return 0
+        """Total thread count across all processes"""
+        total = 0
+        for proc in psutil.process_iter(['num_threads']):
+            try:
+                total += proc.info['num_threads'] or 0
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return total
 
     def register(self):
         return self.functions
 
 
-# modules/network_v1_0_0.py
-import psutil
-from modules.base import BaseModule
-
-class NetworkModule(BaseModule):
-    name = "network"
-    version = "1.0.0"
-    description = "Network usage and connection metrics"
-
-    def __init__(self):
-        self.functions = {
-            "io": self.get_io,
-            "connections": self.get_connections
-        }
-
-    async def get_io(self) -> dict:
-        """Network I/O statistics"""
-        try:
-            io = psutil.net_io_counters()
-            return {
-                "bytes_sent": io.bytes_sent,
-                "bytes_recv": io.bytes_recv,
-                "packets_sent": io.packets_sent,
-                "packets_recv": io.packets_recv
-            }
-        except (AttributeError, RuntimeError):
-            return {
-                "bytes_sent": 0,
-                "bytes_recv": 0,
-                "packets_sent": 0,
-                "packets_recv": 0
-            }
-
-    async def get_connections(self) -> dict:
-        """Network connection statistics"""
-        try:
-            conns = psutil.net_connections(kind='inet')
-            established = sum(1 for c in conns if c.status == 'ESTABLISHED')
-            listen = sum(1 for c in conns if c.status == 'LISTEN')
-            
-            return {
-                "total": len(conns),
-                "established": established,
-                "listen": listen
-            }
-        except (psutil.AccessDenied, OSError):
-            return {"total": 0, "established": 0, "listen": 0}
-
-    def register(self):
-        return self.functions
-
-
-# modules/temperature_v1_0_0.py
-import psutil
-from modules.base import BaseModule
+# ============================================================================
+# TEMPERATURE MODULE
+# ============================================================================
 
 class TemperatureModule(BaseModule):
     name = "temperature"
     version = "1.0.0"
-    description = "System temperature and fan metrics"
+    description = "CPU, GPU temperature, fan speeds, and battery health"
 
     def __init__(self):
         self.functions = {
@@ -454,7 +436,7 @@ class TemperatureModule(BaseModule):
         }
 
     async def get_sensors(self) -> dict:
-        """Temperature sensors (returns empty dict if unavailable)"""
+        """All temperature sensors (CPU, GPU, etc.)"""
         try:
             temps = psutil.sensors_temperatures()
             if not temps:
@@ -464,19 +446,19 @@ class TemperatureModule(BaseModule):
             for name, entries in temps.items():
                 result[name] = [
                     {
-                        "label": e.label,
-                        "current": e.current,
-                        "high": e.high if e.high else None,
-                        "critical": e.critical if e.critical else None
+                        "label": entry.label or "Unknown",
+                        "current": entry.current,
+                        "high": entry.high,
+                        "critical": entry.critical
                     }
-                    for e in entries
+                    for entry in entries
                 ]
             return result
         except AttributeError:
             return {}
 
     async def get_fans(self) -> dict:
-        """Fan speeds in RPM (returns empty dict if unavailable)"""
+        """Fan speeds in RPM"""
         try:
             fans = psutil.sensors_fans()
             if not fans:
@@ -485,27 +467,31 @@ class TemperatureModule(BaseModule):
             result = {}
             for name, entries in fans.items():
                 result[name] = [
-                    {"label": e.label, "current": e.current}
-                    for e in entries
+                    {
+                        "label": entry.label or "Unknown",
+                        "current": entry.current
+                    }
+                    for entry in entries
                 ]
             return result
         except AttributeError:
             return {}
 
     async def get_battery(self) -> dict:
-        """Battery information (returns empty dict if no battery)"""
+        """Battery health and status"""
         try:
             battery = psutil.sensors_battery()
-            if not battery:
-                return {}
+            if battery is None:
+                return {"present": False}
             
             return {
+                "present": True,
                 "percent": battery.percent,
-                "plugged": battery.power_plugged,
-                "time_left_seconds": battery.secsleft if battery.secsleft != psutil.POWER_TIME_UNLIMITED else -1
+                "power_plugged": battery.power_plugged,
+                "seconds_left": battery.secsleft if battery.secsleft != psutil.POWER_TIME_UNLIMITED else -1
             }
-        except (AttributeError, RuntimeError):
-            return {}
+        except AttributeError:
+            return {"present": False}
 
     def register(self):
         return self.functions

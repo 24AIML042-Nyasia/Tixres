@@ -3,7 +3,5 @@
     "hostname" : "",
     "agentId" : "",
     "os" : "",
-    "agent_version" : "",
-    "modules" : [""],
-    "metrics" : [""]
+    "agent_version" : ""
 }

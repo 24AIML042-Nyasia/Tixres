@@ -13,6 +13,8 @@ met = []
 
 async def runner(fn, interval):
     while True:
+        met.append(fn)
+
         try:
             val = await get_fun(fn)()
 
@@ -22,7 +24,7 @@ async def runner(fn, interval):
 
         if(DEBUG):
             print(val)
-            met.append(fn)
+            
         else:
             insert_metric(fn,val)
 
