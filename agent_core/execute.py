@@ -28,7 +28,7 @@ async def runner(fn, interval):
         else:
             insert_metric(fn,val)
 
-        print(all([m in met for m in list(REQUIRED_FUNCTIONS.keys())]))
+        # print(all([m in met for m in list(REQUIRED_FUNCTIONS.keys())]))
 
         await asyncio.sleep(interval)
 
