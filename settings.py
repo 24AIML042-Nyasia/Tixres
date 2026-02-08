@@ -1,0 +1,1 @@
+DB_PATH = 'metrics_server.db'
