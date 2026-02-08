@@ -13,9 +13,6 @@ import hashlib
 import secrets
 import json
 import logging
-import asyncio
-from server_db.models import one_min_roll_up, ten_min_roll_up, one_hour_roll_up, retention_policy
-
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -678,30 +675,11 @@ async def get_metrics(
 # ============================================================================
 # STARTUP
 # ============================================================================
-async def one_roll_up():
-    while True:
-        await asyncio.sleep(60)
-        await one_min_roll_up()
-    
-async def ten_roll_up():
-    while True:
-        await asyncio.sleep(600)
-        await ten_min_roll_up()
-
-async def one_h_roll_up():
-    while True:
-        await asyncio.sleep(60*60)
-        await one_hour_roll_up()
 
 @app.on_event("startup")
 async def startup_event():
-
-    retention_policy()
-
-    asyncio.create_task(one_roll_up())
-    asyncio.create_task(ten_roll_up())
-    asyncio.create_task(one_h_roll_up())
-    
+    """Initialize database on startup"""
+    init_database()
     logger.info("Server started successfully")
 
 @app.get("/")
