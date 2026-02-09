@@ -23,7 +23,7 @@ async def runner(fn, interval):
             val = "UNAVAILABLE"
 
         if(DEBUG):
-            print(val)
+            print(get_fun(fn),val)
             
         else:
             insert_metric(fn,val)

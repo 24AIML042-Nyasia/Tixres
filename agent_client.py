@@ -15,6 +15,8 @@ import time
 import sys
 from agent_core.execute import gather
 import asyncio
+from settings import SERVER_URL
+from agent_core.agent import startup
 
 # Configure logging
 logging.basicConfig(
@@ -395,7 +397,7 @@ async def run_agent(server_url: str, sync_interval: int = 60, ping_interval: int
                 last_ping = current_time
             
             # Sleep for a bit
-            time.sleep(10)
+            await asyncio.sleep(10)
             
     except KeyboardInterrupt:
         logger.info("Agent stopped by user")
@@ -451,7 +453,7 @@ def standalone_submit(server_url: str, metrics: List[Dict[str, Any]]) -> bool:
     agent.config.load()
     return agent.submit_metrics(metrics)
 
-async def run(server, sync, ping):
+async def run_wrap(server, sync , ping):
     await asyncio.gather(run_agent(server, sync, ping),gather())
 
 
@@ -507,4 +509,5 @@ if __name__ == "__main__":
             sys.exit(1)
     
     elif args.action == 'run':
-        asyncio.run(run(args.server, args.sync_interval, args.ping_interval))
+        startup()
+        asyncio.run(run_wrap(args.server, args.sync_interval, args.ping_interval))
