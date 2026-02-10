@@ -1,3 +1,0 @@
-# z-Score only works for latest row only so only usefull for roll up tables not for batch outlier detection
-
-You can run debug.py to find out.
