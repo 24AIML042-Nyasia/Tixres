@@ -4,6 +4,7 @@ from agent_db.models import cleanup_old_metrics
 from agent_core.debug import print_registries ,request
 from agent_utils.utils import load_os_details
 from agent_core.auth import is_registered, register
+from settings import DEBUG
 
 def install():
     load_os_details()
@@ -20,8 +21,8 @@ def startup():
     cleanup_old_metrics()
 
     # print(val_modules(request))
-
-    print_registries()
+    if(DEBUG):
+        print_registries()
     
 
     

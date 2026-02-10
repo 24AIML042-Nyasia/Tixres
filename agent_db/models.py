@@ -1,5 +1,5 @@
 import json
-
+from typing import Any, Dict, List
 from agent_db.connection import get_connection
 
 # conn = get_connection()
@@ -30,7 +30,7 @@ def insert_metric(metric_name: str, value):
     conn.commit()
     conn.close()
 
-def fetch_unsent(table: str, limit: int = 100):
+def fetch_unsent(table: str, limit: int = 100)-> List[Dict[str, Any]]:
     conn = get_connection()
     cursor = conn.execute(
         f"""
@@ -44,7 +44,8 @@ def fetch_unsent(table: str, limit: int = 100):
     )
     rows = cursor.fetchall()
     conn.close()
-    return rows
+
+    return [dict(row) for row in rows]
 
 
 def mark_sent(table: str, ids: list[int]):

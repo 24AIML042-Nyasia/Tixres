@@ -9,11 +9,12 @@ from settings import DEBUG
 
 REQUIRED_FUNCTIONS = load_metrics(request)
 
-met = []
+if(DEBUG):
+    met = []
 
 async def runner(fn, interval):
     while True:
-        met.append(fn)
+        
 
         try:
             val = await get_fun(fn)()
@@ -23,6 +24,7 @@ async def runner(fn, interval):
             val = "UNAVAILABLE"
 
         if(DEBUG):
+            met.append(fn)
             print(get_fun(fn),val)
             
         else:
