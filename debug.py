@@ -4,19 +4,22 @@ from server_db.models import one_min_roll_up,one_hour_roll_up,ten_min_roll_up
 from server_db.conncetion import get_db
 from anomaly.zScore import ZScoreAnomaly
 from ticket_service.ticketService import TicketService
-from debug.anomaly import insert_zscore_cpu_data
+from debug.anomaly import insert_zscore_10m_cpu_data
+from anomaly.anomalyService import AnomalyService
 
 import asyncio
+
+AnomalyService.migrate_anomaly_service()
 
 conn = get_db()
 cursor = conn.cursor()
 
-# insert_zscore_cpu_data()
+insert_zscore_10m_cpu_data()
 
 cursor.execute("""
 SELECT *
-FROM metric_numeric
-ORDER BY id DESC
+FROM metric_numeric_10m
+ORDER BY bucket_start DESC
 LIMIT 30;
 """)
 
