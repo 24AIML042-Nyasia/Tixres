@@ -9,25 +9,25 @@ from anomaly.anomalyService import AnomalyService
 
 import asyncio
 
-AnomalyService.migrate_anomaly_service()
+# AnomalyService.migrate_anomaly_service()
 
-conn = get_db()
-cursor = conn.cursor()
+# conn = get_db()
+# cursor = conn.cursor()
 
-insert_zscore_10m_cpu_data()
+# insert_zscore_10m_cpu_data()
 
-cursor.execute("""
-SELECT *
-FROM metric_numeric_10m
-ORDER BY bucket_start DESC
-LIMIT 30;
-""")
+# cursor.execute("""
+# SELECT *
+# FROM metric_numeric_10m
+# ORDER BY bucket_start DESC
+# LIMIT 30;
+# """)
 
-for row in cursor.fetchall():
-    print(dict(row))
+# for row in cursor.fetchall():
+#     print(dict(row))
 
-detecter = ZScoreAnomaly('agent_TrxsBcR6m-O97zHx48Om7Q', 'cpu_v1.0.0.usage_overall')
-detecter.detect_anomaly()
+# detecter = ZScoreAnomaly('agent_TrxsBcR6m-O97zHx48Om7Q', 'cpu_v1.0.0.usage_overall')
+# detecter.detect_anomaly()
 
 print('Tickets')
 

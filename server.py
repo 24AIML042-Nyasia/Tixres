@@ -2,17 +2,11 @@
 IT Metrics Storage System - FastAPI Server
 Handles agent registration, authentication, and metrics collection
 """
-from fastapi import FastAPI, HTTPException, Header, Depends, Query
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, Depends, Query
 from typing import Optional, List, Dict, Any , Literal
-from datetime import datetime, timedelta
-import sqlite3
-import hmac
-import hashlib
+from datetime import datetime
 import secrets
 import json
-import logging
 import asyncio
 
 from server_auth.hmac import generate_credentials, verify_auth

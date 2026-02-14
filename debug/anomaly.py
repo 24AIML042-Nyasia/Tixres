@@ -61,6 +61,11 @@ def insert_zscore_10m_cpu_data():
     conn.commit()
     conn.close()
 
+def get_agent_z_score_metric_mapping() -> dict :
+    return {
+        "agent_TrxsBcR6m-O97zHx48Om7Q" : ["cpu_v1.0.0.usage_overall"]
+    }
+
 
 
 # from datetime import datetime, timedelta

@@ -5,3 +5,10 @@ demo_agent.py
 init_db.py
 test_system.py
 tables.py
+
+
+# Celery beat schedule
+celerybeat-schedule*
+*.bak
+*.dir
+*.dat
