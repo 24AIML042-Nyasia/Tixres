@@ -1,66 +1,76 @@
-# from server_db.migration import migrate_ticket
-# from server_db.models import one_min_roll_up,one_hour_roll_up,ten_min_roll_up
-# from server_db.connection import get_db
-# from anomaly.zScore import ZScoreAnomaly
-# from ticket_service.ticketService import TicketService
-# from debug.anomaly import insert_zscore_10m_cpu_data
-# from anomaly.anomalyService import AnomalyService
+import asyncio
+from datetime import datetime, timedelta
+from server_db.connection import SessionLocal
+from metric_rollup.rollUp import InfluxDBRollup
+from server_db.models import MetricNumeric
+from metric_rollup.rollUpStateService import RollupStateService
+from server_db.models import MetricNumeric, Agent, AgentCredentials
+from datetime import timezone
+import os
+from dotenv import load_dotenv
 
-import sqlite3
-
-# AnomalyService.migrate_anomaly_service()
-
-conn = sqlite3.connect('metrics_server.db')
-cursor = conn.cursor()
-
-# insert_zscore_10m_cpu_data()
-
-# cursor.execute("DROP TABLE anomaly_state;")
-# conn.commit()
-
-# AnomalyService.migrate_anomaly_service()
+load_dotenv('env.env')
 
 
-# cursor.execute("""
-# SELECT *
-# FROM metric_numeric_10m
-# ORDER BY bucket_start DESC
-# LIMIT 30;
-# """)
+INFLUX_URL = os.getenv('INFLUX_URL')
+INFLUX_TOKEN = os.getenv('INFLUX_TOKEN')
+INFLUX_ORG = os.getenv('INFLUX_ORG')
+INFLUX_BUCKET = os.getenv('INFLUX_BUCKET')
 
-# for row in cursor.fetchall():
-#     print(dict(row))
+async def test_one_min_rollup():
+    db = SessionLocal()
 
-# detecter = ZScoreAnomaly('agent_TrxsBcR6m-O97zHx48Om7Q', ['cpu_v1.0.0.usage_overall'])
-# detecter.detect_anomaly()
+    db.query(MetricNumeric).delete()
+    db.query(Agent).delete()
+    db.query(AgentCredentials).delete()
+    db.commit()
 
-# print('Tickets')
+    creds = AgentCredentials(
+        agent_id="agent_1",
+        api_key="test_key",
+        secret_key="test_secret",
+        is_active=1,
+    )
 
-# for row in TicketService.get_Tickets():
-#     print(dict(row))
+    agent = Agent(
+        agent_id="agent_1",
+        agent_version="1.0",
+        hostname="localhost",
+        os="linux",
+    )
 
-cursor.execute("""
-SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%';
-""")
+    metric = MetricNumeric(
+        agent_id="agent_1",
+        metric_name="cpu_usage_v1_percent",
+        value=50.0,
+        timestamp=datetime.now(timezone.utc),
+    )
 
-for row in cursor.fetchall():
-    print(dict(row))
+    db.add(creds)
+    db.add(agent)
+    db.add(metric)
+    db.commit()
 
-# async def fn():
-#     await one_min_roll_up()
-#     await one_hour_roll_up()
-#     await ten_min_roll_up()
-    
-#     await asyncio.sleep(60)
+    rollup = InfluxDBRollup(
+        INFLUX_URL,
+        INFLUX_TOKEN,
+        INFLUX_ORG,
+        INFLUX_BUCKET,
+    )
 
-# asyncio.run(fn())
-# # migrate()
+    await rollup.one_min_roll_up()
+
+    state = RollupStateService.get_last_bucket(
+        db,
+        "metric_numeric",
+        "metric_numeric_1m",
+    )
+
+    assert state is not None
+    print("✅ Rollup successful, state:", state)
+
+    db.close()
 
 
-
-
-# asyncio.run(one_min_roll_up())
-# asyncio.run(one_hour_roll_up())
-# asyncio.run(ten_min_roll_up())
-
-# print_rollup_rows()
+if __name__ == "__main__":
+    asyncio.run(test_one_min_rollup())

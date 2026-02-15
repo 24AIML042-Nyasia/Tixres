@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  influxdb:
+    image: influxdb:2
+    container_name: influxdb-metrics
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./influxdb-data:/var/lib/influxdb2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: strongpassword
+      DOCKER_INFLUXDB_INIT_ORG: my-org
+      DOCKER_INFLUXDB_INIT_BUCKET: metrics
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: INFLUXDB_TOKEN=VJ-ow4_hwfQDuAa3qrFhjPPqn5SIRPLDJl5Rd22Ns4W_wDz071DOU6QW5ZbQkmWl92m9varbvTSp2jMu1QAItg==

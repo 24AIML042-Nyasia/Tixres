@@ -1,4 +1,5 @@
-Change attribute form anomaly_type to detector in TicketService
+Roll up code cleanup needed , 
+roll up logic update needed in celery
 
 Module validation at agent side
 

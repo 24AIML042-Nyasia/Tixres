@@ -10,7 +10,7 @@ class Ticket(Base):
     metric_name = Column(String, nullable=False)
     severity = Column(String, nullable=False)
     status = Column(String, default='OPEN')
-    anomaly_type = Column(String, nullable=False)
+    detector = Column(String, nullable=False)
     meta = Column(Text)
     message = Column(Text)
     created_at = Column(TIMESTAMP, default=datetime.now, server_default=text('CURRENT_TIMESTAMP'))

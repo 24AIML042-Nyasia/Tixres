@@ -12,3 +12,6 @@ celerybeat-schedule*
 *.bak
 *.dir
 *.dat
+
+
+*.env
