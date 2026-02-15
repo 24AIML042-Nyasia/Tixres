@@ -1,6 +1,7 @@
 from collections import defaultdict
+from sqlalchemy import text
 
-from server_db.conncetion import get_db
+from server_db.connection import SessionLocal
 from anomaly.baseAnomaly import BaseAnomaly
 from ticket_service.ticketService import TicketService
 from anomaly.const import AVA_METRIC_TABLES, AVA_ATTRIBUTES
@@ -29,24 +30,25 @@ class ZScoreAnomaly(BaseAnomaly):
         if not self.metrics:
             return []
 
-        conn = get_db()
-        cursor = conn.cursor()
+        db = SessionLocal()
+        try:
+            placeholders = ",".join([f":metric_{i}" for i in range(len(self.metrics))])
+            params = {f"metric_{i}": m for i, m in enumerate(self.metrics)}
+            params['agent_id'] = self.agent_id
 
-        placeholders = ",".join(["?"] * len(self.metrics))
+            query = f"""
+                SELECT metric_name, {self.on} AS value, bucket_start
+                FROM {self.table}
+                WHERE agent_id = :agent_id
+                AND metric_name IN ({placeholders})
+                ORDER BY metric_name, bucket_start DESC
+            """
 
-        query = f"""
-            SELECT metric_name, {self.on} AS value, bucket_start
-            FROM {self.table}
-            WHERE agent_id = ?
-            AND metric_name IN ({placeholders})
-            ORDER BY metric_name, bucket_start DESC
-        """
-
-        cursor.execute(query, (self.agent_id, *self.metrics))
-        rows = cursor.fetchall()
-        conn.close()
-
-        return rows
+            result = db.execute(text(query), params)
+            rows = [dict(row._mapping) for row in result]
+            return rows
+        finally:
+            db.close()
 
     def detect_anomaly(self):
 
@@ -87,7 +89,7 @@ class ZScoreAnomaly(BaseAnomaly):
                     self.detector_name,
                     self.agent_id,
                     metric,
-                    latest_bucket,
+                    str(latest_bucket),
                 )
 
                 results.append(meta)
@@ -134,8 +136,8 @@ class ZScoreAnomaly(BaseAnomaly):
             agent_id=self.agent_id,
             metric_name=metric,
             severity=severity,
-            anomaly_type="zscore",
-            metadata=str(
+            detector="zscore",
+            meta=str(
                 {
                     "current_value": current,
                     "baseline_value": mean,

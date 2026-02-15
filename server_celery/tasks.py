@@ -4,7 +4,7 @@ import asyncio
 from server_celery.app import app
 from anomaly.zScore import ZScoreAnomaly
 from debug.anomaly import get_agent_z_score_metric_mapping
-from server_db.models import one_min_roll_up, ten_min_roll_up, one_hour_roll_up
+from server_db.rollups import one_min_roll_up, ten_min_roll_up, one_hour_roll_up
 
 @app.task
 def one_min_rollup():

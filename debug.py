@@ -1,17 +1,16 @@
-from server_db.migration import migrate_ticket
-from server_db.test import print_rollup_rows
-from server_db.models import one_min_roll_up,one_hour_roll_up,ten_min_roll_up
-from server_db.conncetion import get_db
-from anomaly.zScore import ZScoreAnomaly
-from ticket_service.ticketService import TicketService
-from debug.anomaly import insert_zscore_10m_cpu_data
-from anomaly.anomalyService import AnomalyService
+# from server_db.migration import migrate_ticket
+# from server_db.models import one_min_roll_up,one_hour_roll_up,ten_min_roll_up
+# from server_db.connection import get_db
+# from anomaly.zScore import ZScoreAnomaly
+# from ticket_service.ticketService import TicketService
+# from debug.anomaly import insert_zscore_10m_cpu_data
+# from anomaly.anomalyService import AnomalyService
 
-import asyncio
+import sqlite3
 
 # AnomalyService.migrate_anomaly_service()
 
-conn = get_db()
+conn = sqlite3.connect('metrics_server.db')
 cursor = conn.cursor()
 
 # insert_zscore_10m_cpu_data()
@@ -19,7 +18,7 @@ cursor = conn.cursor()
 # cursor.execute("DROP TABLE anomaly_state;")
 # conn.commit()
 
-AnomalyService.migrate_anomaly_service()
+# AnomalyService.migrate_anomaly_service()
 
 
 # cursor.execute("""
@@ -32,17 +31,16 @@ AnomalyService.migrate_anomaly_service()
 # for row in cursor.fetchall():
 #     print(dict(row))
 
-detecter = ZScoreAnomaly('agent_TrxsBcR6m-O97zHx48Om7Q', ['cpu_v1.0.0.usage_overall'])
-detecter.detect_anomaly()
+# detecter = ZScoreAnomaly('agent_TrxsBcR6m-O97zHx48Om7Q', ['cpu_v1.0.0.usage_overall'])
+# detecter.detect_anomaly()
 
-print('Tickets')
+# print('Tickets')
 
-for row in TicketService.get_Tickets():
-    print(dict(row))
+# for row in TicketService.get_Tickets():
+#     print(dict(row))
 
 cursor.execute("""
-SELECT *
-FROM anomaly_state;
+SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%';
 """)
 
 for row in cursor.fetchall():

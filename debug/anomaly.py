@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from server_db.conncetion import get_db
+from server_db.connection import get_db
 import random
 
 def insert_zscore_10m_cpu_data():

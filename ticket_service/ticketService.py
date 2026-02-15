@@ -1,4 +1,5 @@
-from server_db.conncetion import get_db
+from server_db.connection import SessionLocal
+from ticket_service.models import Ticket
 from datetime import datetime
 
 class TicketService:
@@ -7,36 +8,44 @@ class TicketService:
         agent_id: str,
         metric_name: str,
         severity: str,
-        anomaly_type: str,
-        metadata : str,
+        detector: str,
+        meta: str,
         message: str
     ):
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            INSERT INTO tickets (
-                agent_id, metric_name,
-                severity, anomaly_type, metadata,
-                message, created_at
+        db = SessionLocal()
+        try:
+            ticket = Ticket(
+                agent_id=agent_id,
+                metric_name=metric_name,
+                severity=severity,
+                detector=detector,
+                meta=meta,
+                message=message,
+                created_at=datetime.now()
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            agent_id, metric_name,
-            severity, anomaly_type,metadata, message, datetime.now()
-        ))
-
-        conn.commit()
-        conn.close()
+            db.add(ticket)
+            db.commit()
+        finally:
+            db.close()
 
     @staticmethod
-    def get_Tickets(limit = 100) -> list:
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT * FROM tickets LIMIT 100;
-        """)
-
-        return cursor.fetchall()
-
+    def get_Tickets(limit=100) -> list:
+        db = SessionLocal()
+        try:
+            tickets = db.query(Ticket).limit(limit).all()
+            return [
+                {
+                    'id': t.id,
+                    'agent_id': t.agent_id,
+                    'metric_name': t.metric_name,
+                    'severity': t.severity,
+                    'status': t.status,
+                    'detector': t.detector,
+                    'meta': t.meta,
+                    'message': t.message,
+                    'created_at': t.created_at
+                }
+                for t in tickets
+            ]
+        finally:
+            db.close()

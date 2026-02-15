@@ -1,62 +1,48 @@
-from server_db.conncetion import get_db
+from sqlalchemy import text
+from server_db.connection import SessionLocal
+from anomaly.models import AnomalyState
 
-
-class AnomalyService:
-    @staticmethod
-    def migrate_anomaly_service():
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS anomaly_state (
-                table_name   TEXT NOT NULL,
-                detector     TEXT NOT NULL,
-                agent_id     TEXT NOT NULL,
-                metric_name  TEXT NOT NULL,
-                last_bucket  TEXT NOT NULL,
-                PRIMARY KEY (table_name, detector, agent_id, metric_name)
-            );
-        """)
-
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_anomaly_lookup
-            ON anomaly_state (table_name, detector, agent_id, metric_name);
-        """)
-
-        conn.commit()
-        conn.close()
-
+class AnomalyService:    
     @staticmethod
     def insertOrReplace(table, detector, agent_id, metric_name, latest_bucket):
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            INSERT OR REPLACE INTO anomaly_state
-            (table_name, detector, agent_id, metric_name, last_bucket)
-            VALUES (?, ?, ?, ?, ?);
-        """,
-        (table, detector, agent_id, metric_name, latest_bucket))
-
-        conn.commit()
-        conn.close()
-
+        db = SessionLocal()
+        try:
+            existing = db.query(AnomalyState).filter(
+                AnomalyState.table_name == table,
+                AnomalyState.detector == detector,
+                AnomalyState.agent_id == agent_id,
+                AnomalyState.metric_name == metric_name
+            ).first()
+            
+            if existing:
+                existing.last_bucket = latest_bucket
+            else:
+                new_state = AnomalyState(
+                    table_name=table,
+                    detector=detector,
+                    agent_id=agent_id,
+                    metric_name=metric_name,
+                    last_bucket=latest_bucket
+                )
+                db.add(new_state)
+            
+            db.commit()
+        finally:
+            db.close()
+    
     @staticmethod
     def selectOne(table, detector, agent_id, metric_name):
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT last_bucket
-            FROM anomaly_state
-            WHERE table_name = ?
-            AND detector = ?
-            AND agent_id = ?
-            AND metric_name = ?;
-        """,
-        (table, detector, agent_id, metric_name))
-
-        row = cursor.fetchone()
-        conn.close()
-
-        return row
+        db = SessionLocal()
+        try:
+            state = db.query(AnomalyState).filter(
+                AnomalyState.table_name == table,
+                AnomalyState.detector == detector,
+                AnomalyState.agent_id == agent_id,
+                AnomalyState.metric_name == metric_name
+            ).first()
+            
+            if state:
+                return (state.last_bucket,)
+            return None
+        finally:
+            db.close()

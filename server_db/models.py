@@ -1,134 +1,104 @@
-from server_db.conncetion import get_db
+from sqlalchemy import Column, String, Integer, Float, TIMESTAMP, Text, ForeignKey, Index, text
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from server_db.connection import Base
 
-async def one_min_roll_up():
-    conn = get_db()
-    cursor = conn.cursor()
+class AgentCredentials(Base):
+    __tablename__ = 'agent_credentials'
+    
+    agent_id = Column(String, primary_key=True)
+    api_key = Column(String, unique=True, nullable=False)
+    secret_key = Column(String, nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.now, server_default=text('CURRENT_TIMESTAMP'))
+    is_active = Column(Integer, default=1)
+    
+    agent = relationship("Agent", back_populates="credentials", uselist=False)
 
-    cursor.execute("""
-        INSERT OR REPLACE INTO metric_numeric_1m
-        SELECT
-            agent_id,
-            metric_name,
-            datetime(strftime('%Y-%m-%d %H:%M:00', timestamp)) AS bucket_start,
+class Agent(Base):
+    __tablename__ = 'agents'
+    
+    agent_id = Column(String, ForeignKey('agent_credentials.agent_id'), primary_key=True)
+    agent_version = Column(String, nullable=False)
+    hostname = Column(String, nullable=False)
+    os = Column(String, nullable=False)
+    created_at = Column(TIMESTAMP, default=datetime.now, server_default=text('CURRENT_TIMESTAMP'))
+    updated_at = Column(TIMESTAMP, default=datetime.now, onupdate=datetime.now, server_default=text('CURRENT_TIMESTAMP'))
+    template = Column(Text)
+    heartbeat = Column(TIMESTAMP)
+    fingerprint = Column(String)
+    
+    credentials = relationship("AgentCredentials", back_populates="agent")
+    numeric_metrics = relationship("MetricNumeric", back_populates="agent")
+    json_metrics = relationship("MetricJson", back_populates="agent")
 
-            COUNT(*) AS count,
-            MIN(value) AS min,
-            MAX(value) AS max,
-            SUM(value) AS sum,
-            AVG(value) AS avg
-        FROM metric_numeric
-        WHERE timestamp >= (
-            SELECT datetime(MAX(timestamp), '-1 minutes')
-            FROM metric_numeric
-        )
-        GROUP BY agent_id, metric_name, bucket_start;
-    """)
+class MetricNumeric(Base):
+    __tablename__ = 'metric_numeric'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    agent_id = Column(String, ForeignKey('agents.agent_id'), nullable=False)
+    metric_name = Column(String, nullable=False)
+    value = Column(Float, nullable=False)
+    timestamp = Column(TIMESTAMP, nullable=False)
+    received_at = Column(TIMESTAMP, default=datetime.now, server_default=text('CURRENT_TIMESTAMP'))
+    
+    agent = relationship("Agent", back_populates="numeric_metrics")
+    
+    __table_args__ = (
+        Index('idx_metric_raw_time', 'timestamp'),
+    )
 
-    conn.commit()
-    conn.close()
+class MetricJson(Base):
+    __tablename__ = 'metric_json'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    agent_id = Column(String, ForeignKey('agents.agent_id'), nullable=False)
+    metric_name = Column(String, nullable=False)
+    value = Column(Text, nullable=False)
+    timestamp = Column(TIMESTAMP, nullable=False)
+    received_at = Column(TIMESTAMP, default=datetime.now, server_default=text('CURRENT_TIMESTAMP'))
+    
+    agent = relationship("Agent", back_populates="json_metrics")
 
-async def ten_min_roll_up():
-    conn = get_db()
-    cursor = conn.cursor()
+class MetricNumeric1m(Base):
+    __tablename__ = 'metric_numeric_1m'
+    
+    agent_id = Column(String, nullable=False, primary_key=True)
+    metric_name = Column(String, nullable=False, primary_key=True)
+    bucket_start = Column(TIMESTAMP, nullable=False, primary_key=True)
+    count = Column(Integer, nullable=False)
+    min = Column(Float, nullable=False)
+    max = Column(Float, nullable=False)
+    sum = Column(Float, nullable=False)
+    avg = Column(Float, nullable=False)
+    
+    __table_args__ = (
+        Index('idx_metric_1m_time', 'bucket_start'),
+    )
 
-    cursor.execute("""
-        INSERT OR REPLACE INTO metric_numeric_10m
-        SELECT
-            agent_id,
-            metric_name,
-            datetime(
-                strftime('%Y-%m-%d %H:', bucket_start) ||
-                printf('%02d', (strftime('%M', bucket_start) / 10) * 10) ||
-                ':00'
-            ) AS bucket_start,
+class MetricNumeric10m(Base):
+    __tablename__ = 'metric_numeric_10m'
+    
+    agent_id = Column(String, nullable=False, primary_key=True)
+    metric_name = Column(String, nullable=False, primary_key=True)
+    bucket_start = Column(TIMESTAMP, nullable=False, primary_key=True)
+    count = Column(Integer, nullable=False)
+    min = Column(Float, nullable=False)
+    max = Column(Float, nullable=False)
+    sum = Column(Float, nullable=False)
+    avg = Column(Float, nullable=False)
+    
+    __table_args__ = (
+        Index('idx_metric_10m_time', 'bucket_start'),
+    )
 
-            SUM(count) AS count,
-            MIN(min) AS min,
-            MAX(max) AS max,
-            SUM(sum) AS sum,
-            SUM(sum) / SUM(count) AS avg
-        FROM metric_numeric_1m
-        WHERE bucket_start >=  (
-            SELECT datetime(MAX(timestamp), '-10 minutes')
-            FROM metric_numeric
-        )
-        GROUP BY agent_id, metric_name, bucket_start;
-    """)
-
-    conn.commit()
-    conn.close()
-
-async def one_hour_roll_up():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT OR REPLACE INTO metric_numeric_1h
-        SELECT
-            agent_id,
-            metric_name,
-            datetime(strftime('%Y-%m-%d %H:00:00', bucket_start)) AS bucket_start,
-
-            SUM(count) AS count,
-            MIN(min) AS min,
-            MAX(max) AS max,
-            SUM(sum) AS sum,
-            SUM(sum) / SUM(count) AS avg
-        FROM metric_numeric_10m
-        WHERE bucket_start >=  (
-            SELECT datetime(MAX(timestamp), '-1 hour')
-            FROM metric_numeric
-        )
-        GROUP BY agent_id, metric_name, bucket_start;
-    """)
-
-    conn.commit()
-    conn.close()
-
-def one_minutes_metric():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""SELECT * FROM metric_numeric_1m;  
-    """)
-
-    return cursor.fetchall()
-
-
-def ten_minutes_metric():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""SELECT * FROM metric_numeric_10m;  
-    """)
-
-    return cursor.fetchall()
-
-
-def one_hour_metric():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""SELECT * FROM metric_numeric_1h;  
-    """)
-
-    return cursor.fetchall()
-
-def retention_policy():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        DELETE FROM metric_numeric
-        WHERE timestamp < datetime('now', '-7 days');""")
-
-    cursor.execute("""          
-        DELETE FROM metric_numeric_1m
-        WHERE bucket_start < datetime('now', '-30 days');""")
-
-    cursor.execute("""
-        DELETE FROM metric_numeric_10m
-        WHERE bucket_start < datetime('now', '-90 days');
-    """)
-
-
+class MetricNumeric1h(Base):
+    __tablename__ = 'metric_numeric_1h'
+    
+    agent_id = Column(String, nullable=False, primary_key=True)
+    metric_name = Column(String, nullable=False, primary_key=True)
+    bucket_start = Column(TIMESTAMP, nullable=False, primary_key=True)
+    count = Column(Integer, nullable=False)
+    min = Column(Float, nullable=False)
+    max = Column(Float, nullable=False)
+    sum = Column(Float, nullable=False)
+    avg = Column(Float, nullable=False)
