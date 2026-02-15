@@ -70,7 +70,10 @@ class ZScoreAnomaly(BaseAnomaly):
             latest_bucket = metric_rows[0]["bucket_start"]
 
             row = AnomalyService.selectOne(
-                self.table, self.detector_name
+                self.table,
+                self.detector_name,
+                self.agent_id,
+                metric
             )
 
             if row and row[0] == latest_bucket:
@@ -86,6 +89,7 @@ class ZScoreAnomaly(BaseAnomaly):
                     metric,
                     latest_bucket,
                 )
+
                 results.append(meta)
 
         return results if results else None
@@ -110,6 +114,8 @@ class ZScoreAnomaly(BaseAnomaly):
 
         z = (current - mean) / std
         az = abs(z)
+
+        print(az)
 
         severity = None
         if az >= 4:

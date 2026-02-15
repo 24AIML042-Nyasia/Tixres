@@ -11,10 +11,16 @@ import asyncio
 
 # AnomalyService.migrate_anomaly_service()
 
-# conn = get_db()
-# cursor = conn.cursor()
+conn = get_db()
+cursor = conn.cursor()
 
 # insert_zscore_10m_cpu_data()
+
+# cursor.execute("DROP TABLE anomaly_state;")
+# conn.commit()
+
+AnomalyService.migrate_anomaly_service()
+
 
 # cursor.execute("""
 # SELECT *
@@ -26,12 +32,20 @@ import asyncio
 # for row in cursor.fetchall():
 #     print(dict(row))
 
-# detecter = ZScoreAnomaly('agent_TrxsBcR6m-O97zHx48Om7Q', 'cpu_v1.0.0.usage_overall')
-# detecter.detect_anomaly()
+detecter = ZScoreAnomaly('agent_TrxsBcR6m-O97zHx48Om7Q', ['cpu_v1.0.0.usage_overall'])
+detecter.detect_anomaly()
 
 print('Tickets')
 
 for row in TicketService.get_Tickets():
+    print(dict(row))
+
+cursor.execute("""
+SELECT *
+FROM anomaly_state;
+""")
+
+for row in cursor.fetchall():
     print(dict(row))
 
 # async def fn():
