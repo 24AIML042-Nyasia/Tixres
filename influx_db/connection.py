@@ -7,7 +7,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 
 load_dotenv()
 
-class InfluxDB:
+class InfluxDBService:
     @staticmethod
     def getClient():
         return InfluxDBClient(
@@ -26,4 +26,11 @@ class InfluxDB:
     def getQueryApi(client : InfluxDBClient):
         return client.query_api()
     
+    @staticmethod
+    def getOrg():
+        return os.getenv('INFLUX_ORG')
+
+    @staticmethod
+    def getBucket():
+        return os.getenv('INFLUX_BUCKET')
     

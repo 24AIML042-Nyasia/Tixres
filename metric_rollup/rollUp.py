@@ -7,6 +7,7 @@ from server_db.connection import SessionLocal
 from settings import METRIC_REGEX_PATTERN
 from metric_rollup.rollUpStateService import RollupStateService
 from server_utils.logger import get_logger
+from influx_db.connection import InfluxDBService
 
 MEASUREMENT_1M = "metric_numeric_1m"
 MEASUREMENT_10M = "metric_numeric_10m"
@@ -39,6 +40,13 @@ class InfluxDBRollup:
         self.query_api = self.client.query_api()
         self.org = org
         self.bucket = bucket
+
+    def __init__(self):
+        self.client = InfluxDBService.getClient()
+        self.write_api = InfluxDBService.getWriteApiSync(self.client)
+        self.query_api = InfluxDBService.getQueryApi(self.client)
+        self.org = InfluxDBService.getOrg()
+        self.bucket = InfluxDBService.getBucket()
 
     def _parse_metric_name(self, metric_name):
         match = pattern.match(metric_name)
@@ -365,3 +373,7 @@ class InfluxDBRollup:
 
     def close(self):
         self.client.close()
+
+
+    def __del__(self):
+        self.close()

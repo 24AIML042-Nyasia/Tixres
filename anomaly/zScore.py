@@ -6,6 +6,7 @@ from anomaly.baseAnomaly import BaseAnomaly
 from ticket_service.ticketService import TicketService
 from anomaly.const import AVA_METRIC_TABLES, AVA_ATTRIBUTES
 from anomaly.anomalyService import AnomalyService
+from influx_db.connection import InfluxDBService
 
 
 class ZScoreAnomaly(BaseAnomaly):
@@ -16,39 +17,48 @@ class ZScoreAnomaly(BaseAnomaly):
         agent_id: str,
         metrics: list,
         window: int = 30,
-        table: str = "metric_numeric_10m",
+        measurement: str = "metric_numeric_10m",
         on: str = "avg",
     ):
         self.agent_id = agent_id
         self.metrics = metrics
         self.window = window
 
-        self.table = table if table in AVA_METRIC_TABLES else "metric_numeric_10m"
+        self.measurement = measurement if measurement in AVA_METRIC_TABLES else "metric_numeric_10m"
         self.on = on if on in AVA_ATTRIBUTES else "avg"
 
-    def _get_agent_metrics(self):
-        if not self.metrics:
-            return []
+        def _get_agent_metrics(self):
+            if not self.metrics:
+                return []
 
-        db = SessionLocal()
-        try:
-            placeholders = ",".join([f":metric_{i}" for i in range(len(self.metrics))])
-            params = {f"metric_{i}": m for i, m in enumerate(self.metrics)}
-            params['agent_id'] = self.agent_id
+            metrics_filter = " or ".join(
+                [f'r["metric"] == "{m}"' for m in self.metrics]
+            )
 
-            query = f"""
-                SELECT metric_name, {self.on} AS value, bucket_start
-                FROM {self.table}
-                WHERE agent_id = :agent_id
-                AND metric_name IN ({placeholders})
-                ORDER BY metric_name, bucket_start DESC
-            """
+            query = f'''
+            from(bucket: "{InfluxDBService.getBucket()}")
+            |> range(start: -7d)
+            |> filter(fn: (r) => r["_measurement"] == "{self.measurement}")
+            |> filter(fn: (r) => r["agent_id"] == "{self.agent_id}")
+            |> filter(fn: (r) => {metrics_filter})
+            |> filter(fn: (r) => r["_field"] == "{self.on}")
+            |> sort(columns: ["_time"], desc: true)
+            '''
 
-            result = db.execute(text(query), params)
-            rows = [dict(row._mapping) for row in result]
+            result = InfluxDBService.getQueryApi(
+                InfluxDBService.getClient()).query(query, org=self.org)
+
+            rows = []
+
+            for table in result:
+                for record in table.records:
+                    rows.append({
+                        "metric_name": record["metric"],
+                        "value": record.get_value(),
+                        "bucket_start": record.get_time()
+                    })
+
             return rows
-        finally:
-            db.close()
 
     def detect_anomaly(self):
 
@@ -72,7 +82,7 @@ class ZScoreAnomaly(BaseAnomaly):
             latest_bucket = metric_rows[0]["bucket_start"]
 
             row = AnomalyService.selectOne(
-                self.table,
+                self.measurement,
                 self.detector_name,
                 self.agent_id,
                 metric
@@ -85,7 +95,7 @@ class ZScoreAnomaly(BaseAnomaly):
 
             if meta:
                 AnomalyService.insertOrReplace(
-                    self.table,
+                    self.measurement,
                     self.detector_name,
                     self.agent_id,
                     metric,
@@ -142,6 +152,7 @@ class ZScoreAnomaly(BaseAnomaly):
                     "current_value": current,
                     "baseline_value": mean,
                     "deviation": z,
+                    "table" : self.measurement
                 }
             ),
             message=f"Z-score anomaly detected (z={round(z, 2)})",
