@@ -42,6 +42,9 @@ class MetricNumeric(Base):
     received_at = Column(TIMESTAMP, default=datetime.now, server_default=text('CURRENT_TIMESTAMP'))
     
     agent = relationship("Agent", back_populates="numeric_metrics")
+
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
     
     __table_args__ = (
         Index('idx_metric_raw_time', 'timestamp'),
@@ -58,3 +61,6 @@ class MetricJson(Base):
     received_at = Column(TIMESTAMP, default=datetime.now, server_default=text('CURRENT_TIMESTAMP'))
     
     agent = relationship("Agent", back_populates="json_metrics")
+
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

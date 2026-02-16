@@ -63,7 +63,7 @@ def insert_zscore_10m_cpu_data():
 
 def get_agent_z_score_metric_mapping() -> dict :
     return {
-        "agent_TrxsBcR6m-O97zHx48Om7Q" : ["cpu_v1.0.0.usage_overall"]
+        "agent_Pmx0GZGOc4z2-F1rw9V3nw" : ["cpu_v1.0.0.usage_overall"]
     }
 
 

@@ -27,38 +27,38 @@ class ZScoreAnomaly(BaseAnomaly):
         self.measurement = measurement if measurement in AVA_METRIC_TABLES else "metric_numeric_10m"
         self.on = on if on in AVA_ATTRIBUTES else "avg"
 
-        def _get_agent_metrics(self):
-            if not self.metrics:
-                return []
+    def _get_agent_metrics(self):
+        if not self.metrics:
+            return []
 
-            metrics_filter = " or ".join(
-                [f'r["metric"] == "{m}"' for m in self.metrics]
-            )
+        metrics_filter = " or ".join(
+            [f'r["metric"] == "{m}"' for m in self.metrics]
+        )
 
-            query = f'''
-            from(bucket: "{InfluxDBService.getBucket()}")
-            |> range(start: -7d)
-            |> filter(fn: (r) => r["_measurement"] == "{self.measurement}")
-            |> filter(fn: (r) => r["agent_id"] == "{self.agent_id}")
-            |> filter(fn: (r) => {metrics_filter})
-            |> filter(fn: (r) => r["_field"] == "{self.on}")
-            |> sort(columns: ["_time"], desc: true)
-            '''
+        query = f'''
+        from(bucket: "{InfluxDBService.getBucket()}")
+        |> range(start: -7d)
+        |> filter(fn: (r) => r["_measurement"] == "{self.measurement}")
+        |> filter(fn: (r) => r["agent_id"] == "{self.agent_id}")
+        |> filter(fn: (r) => {metrics_filter})
+        |> filter(fn: (r) => r["_field"] == "{self.on}")
+        |> sort(columns: ["_time"], desc: true)
+        '''
 
-            result = InfluxDBService.getQueryApi(
-                InfluxDBService.getClient()).query(query, org=self.org)
+        result = InfluxDBService.getQueryApi(
+            InfluxDBService.getClient()).query(query, org=InfluxDBService.getOrg())
 
-            rows = []
+        rows = []
 
-            for table in result:
-                for record in table.records:
-                    rows.append({
-                        "metric_name": record["metric"],
-                        "value": record.get_value(),
-                        "bucket_start": record.get_time()
-                    })
+        for table in result:
+            for record in table.records:
+                rows.append({
+                    "metric_name": record["metric"],
+                    "value": record.get_value(),
+                    "bucket_start": record.get_time()
+                })
 
-            return rows
+        return rows
 
     def detect_anomaly(self):
 

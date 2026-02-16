@@ -20,7 +20,7 @@ app.conf.beat_schedule = {
     },
     "one_hour_roll_up": {
         "task": "server_celery.tasks.one_hour_rollup",
-        "schedule": crontab(hour="*"),
+        "schedule": crontab(minute="*/60"),
     },
     "run_zscore_anomaly": {
         "task": "server_celery.tasks.run_anomaly_cycle",

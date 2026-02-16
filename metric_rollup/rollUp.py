@@ -34,13 +34,6 @@ logger = get_logger()
 
 
 class InfluxDBRollup:
-    def __init__(self, url, token, org, bucket):
-        self.client = InfluxDBClient(url=url, token=token, org=org)
-        self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
-        self.query_api = self.client.query_api()
-        self.org = org
-        self.bucket = bucket
-
     def __init__(self):
         self.client = InfluxDBService.getClient()
         self.write_api = InfluxDBService.getWriteApiSync(self.client)
@@ -93,7 +86,7 @@ class InfluxDBRollup:
 
     def _write_points(self, points):
         if points:
-            self.write_api.write(bucket=self.bucket, record=points)
+            self.write_api.write(bucket=self.bucket, record=points, org=self.org)
 
     async def one_min_roll_up(self):
         db = SessionLocal()

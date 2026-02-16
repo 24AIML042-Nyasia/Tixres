@@ -3,7 +3,7 @@ from typing import Optional, Literal
 from datetime import datetime
 import asyncio
 
-from server_db.rollups import one_min_roll_up, ten_min_roll_up, one_hour_roll_up, retention_policy
+from server_db.rollups import  retention_policy
 from server_utils.fastapi import app
 from server_utils.logger import get_logger
 from server_utils.models import (
@@ -61,20 +61,6 @@ async def get_metrics_endpoint(
 ):
     return await get_metrics(metric_type, agent_id, metric_name, start_time, end_time, limit)
 
-async def one_roll_up():
-    while True:
-        await asyncio.sleep(60)
-        await one_min_roll_up()
-
-async def ten_roll_up():
-    while True:
-        await asyncio.sleep(600)
-        await ten_min_roll_up()
-
-async def one_h_roll_up():
-    while True:
-        await asyncio.sleep(60*60)
-        await one_hour_roll_up()
 
 @app.on_event("startup")
 async def startup_event():
