@@ -2,12 +2,11 @@ import asyncio
 
 from agent_utils.registry import FUNCTION_REGISTRY
 from agent_core.utils import load_metrics
-from agent_core.debug import request
 from agent_db.models import insert_metric
 from settings import DEBUG
 
 
-REQUIRED_FUNCTIONS = load_metrics(request)
+REQUIRED_FUNCTIONS = []
 
 if(DEBUG):
     met = []
@@ -34,7 +33,9 @@ async def runner(fn, interval):
 
         await asyncio.sleep(interval)
 
-async def gather():
+async def gather(request):
+    global REQUIRED_FUNCTIONS
+    REQUIRED_FUNCTIONS = load_metrics(request)
     running = [
         asyncio.create_task(runner(fn, interval))
         for fn, interval in REQUIRED_FUNCTIONS.items()

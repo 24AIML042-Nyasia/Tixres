@@ -4,3 +4,5 @@ agent_ui/
 
 bugs.txt
 debug.py
+
+app.db

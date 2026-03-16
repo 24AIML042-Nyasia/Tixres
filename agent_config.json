@@ -1,5 +1,21 @@
 {
-  "agent_id": "agent_Pmx0GZGOc4z2-F1rw9V3nw",
-  "api_key": "BH234af6uNRXoxY1bo-TmpnXhOvA3QQbWZmlBf6rI3c",
-  "secret_key": "KJ0oD3FD8CtU7jBHfPQTk5zHXDilHXTcsGxM4zdEHLz6Co279ez623GoCsvrZ1qlkGWptctrgFaJqRWAXIltIQ"
+  "agent_id": "agent_iUfWKzOefCmC4yvARGOZLA",
+  "api_key": "64z2qn7zpbSQ7th3kbJMPvMzCU4BlxyXit68EGGqL4U",
+  "secret_key": "kKnm4TirNuBkCBloozJjLAIUWBgexUhQkI8IWlme_31wig59s9p09UHNwYPp7zOs6o_FrrUdc9i29co5s_mG-g",
+  "template": {
+    "modules": [
+      "cpu_v1.0.0",
+      "memory_v1.0.0",
+      "disk_v1.0.0",
+      "system_v1.0.0",
+      "process_v1.0.0",
+      "network_v1.0.0",
+      "temperature_v1.0.0"
+    ],
+    "metrics": {
+      "memory_v1.0.0.ram": 5,
+      "memory_v1.0.0.swap": 10,
+      "memory_v1.0.0.cached_vs_free": 15
+    }
+  }
 }

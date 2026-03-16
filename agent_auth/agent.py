@@ -15,18 +15,27 @@ class AgentConfig:
         self.agent_id: Optional[str] = None
         self.api_key: Optional[str] = None
         self.secret_key: Optional[str] = None
+        self.template: Optional[str] = None
         self.config_file = "agent_config.json"
         
-    def load(self)->bool:
-        """Load configuration from file"""
+    def load(self) -> bool:
         try:
             with open(self.config_file, 'r') as f:
                 data = json.load(f)
-                self.agent_id = data.get('agent_id')
-                self.api_key = data.get('api_key')
-                self.secret_key = data.get('secret_key')
-                logger.info("Configuration loaded successfully")
-                return True
+
+            self.agent_id = data.get('agent_id')
+            self.api_key = data.get('api_key')
+            self.secret_key = data.get('secret_key')
+
+            template = data.get("template")
+            if isinstance(template, str):
+                self.template = json.loads(template)
+            else:
+                self.template = template
+
+            logger.info("Configuration loaded successfully")
+            return True
+
         except FileNotFoundError:
             logger.info("No configuration file found")
             return False
@@ -40,7 +49,8 @@ class AgentConfig:
             data = {
                 'agent_id': self.agent_id,
                 'api_key': self.api_key,
-                'secret_key': self.secret_key
+                'secret_key': self.secret_key,
+                'template' : self.template
             }
             with open(self.config_file, 'w') as f:
                 json.dump(data, f, indent=2)
@@ -62,7 +72,7 @@ class MetricsAgent:
         self.hostname = hostname
         self.os_name = os_name
         self.fingerprint = self._generate_fingerprint()
-        
+
     def _generate_fingerprint(self) -> str:
         """Generate unique fingerprint for this agent"""
         import platform
@@ -75,8 +85,8 @@ class MetricsAgent:
         fingerprint_data = f"{self.hostname}:{mac}:{platform.machine()}"
         fingerprint = hashlib.sha256(fingerprint_data.encode()).hexdigest()[:16]
         return fingerprint
-    
-    def register(self, template: Optional[Dict[str, Any]] = None) -> bool:
+
+    def register(self) -> bool:
         """Register agent with server"""
         try:
             url = f"{self.config.server_url}/api/agent/register"
@@ -85,8 +95,7 @@ class MetricsAgent:
                 "agent_version": self.agent_version,
                 "hostname": self.hostname,
                 "os": self.os_name,
-                "fingerprint": self.fingerprint,
-                "template": template
+                "fingerprint": self.fingerprint
             }
             
             logger.info(f"Registering agent at {url}")
@@ -97,6 +106,12 @@ class MetricsAgent:
             self.config.agent_id = data['agent_id']
             self.config.api_key = data['api_key']
             self.config.secret_key = data['secret_key']
+            template = data['template']
+
+            if isinstance(template, str):
+                template = json.loads(template)
+
+            self.config.template = template
             self.config.save()
             
             logger.info(f"Agent registered successfully: {self.config.agent_id}")
@@ -126,8 +141,15 @@ class MetricsAgent:
             logger.info(f"Logging in agent: {self.config.agent_id}")
             response = requests.post(url, json=payload, headers=headers, timeout=10)
             response.raise_for_status()
-            
+
             data = response.json()
+            template = data["agent_info"]["template"]
+            if isinstance(template, str):
+                template = json.loads(template)
+
+            self.config.template = template
+            self.config.save()
+
             logger.info(f"Login successful: {data['message']}")
             return True
             

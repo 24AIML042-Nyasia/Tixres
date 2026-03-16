@@ -54,30 +54,8 @@ def sync_metrics(agent: MetricsAgent, batch_size: int = 100):
         return False
 
 
-async def run_agent(server_url: str, sync_interval: int = 60, ping_interval: int = 300):
+async def run_agent(agent : MetricsAgent, sync_interval: int = 60, ping_interval: int = 300):
     """Run the agent main loop"""
-    import platform
-    
-    # Initialize agent
-    agent = MetricsAgent(
-        server_url=server_url,
-        agent_version="1.0.0",
-        hostname=platform.node(),
-        os_name=platform.system()
-    )
-    
-    # Load existing configuration or register
-    if not agent.config.load():
-        logger.info("Agent not registered, registering now...")
-        if not agent.register():
-            logger.error("Failed to register agent, exiting")
-            sys.exit(1)
-    
-    # Login
-    if not agent.login():
-        logger.error("Failed to login, exiting")
-        sys.exit(1)
-    
     # Main loop
     logger.info("Agent started, entering main loop")
     last_sync = 0
@@ -108,8 +86,32 @@ async def run_agent(server_url: str, sync_interval: int = 60, ping_interval: int
         logger.error(f"Agent error: {e}")
         raise
 
-async def run_wrap(server, sync , ping):
-    await asyncio.gather(run_agent(server, sync, ping),gather())
+async def run_wrap(server_url, sync , ping):
+    import platform
+    agent = MetricsAgent(
+        server_url=server_url,
+        agent_version="1.0.0",
+        hostname=platform.node(),
+        os_name=platform.system()
+    )
+    
+    # Load existing configuration or register
+    if not agent.config.load():
+        logger.info("Agent not registered, registering now...")
+        if not agent.register():
+            logger.error("Failed to register agent, exiting")
+            sys.exit(1)
+    
+    # Login
+    if not agent.login():
+        logger.error("Failed to login, exiting")
+        sys.exit(1)
+    
+    # if not agent.config.load():
+    #     logger.error("Failed to load template")
+
+        
+    await asyncio.gather(run_agent(agent, sync, ping),gather(agent.config.template))
 
 
 # ============================================================================
