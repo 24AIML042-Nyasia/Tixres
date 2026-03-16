@@ -12,6 +12,7 @@ from server_utils.models import (
     PingRequest
 )
 from server_utils.logger import get_logger
+from agent_adapter.templates import get_template
 
 logger = get_logger()
 
@@ -29,7 +30,7 @@ async def register_agent(request: AgentRegisterRequest):
             )
             db.add(credentials)
             
-            template_json = json.dumps(request.template) if request.template else None
+            template_json = get_template()
             agent = Agent(
                 agent_id=agent_id,
                 agent_version=request.agent_version,
@@ -49,6 +50,7 @@ async def register_agent(request: AgentRegisterRequest):
                 agent_id=agent_id,
                 api_key=api_key,
                 secret_key=secret_key,
+                template = template_json,
                 message="Agent registered successfully"
             )
         finally:
@@ -77,7 +79,8 @@ async def login_agent(request: AgentLoginRequest, agent_id: str = Depends(verify
                 "hostname": agent.hostname,
                 "os": agent.os,
                 "created_at": str(agent.created_at),
-                "heartbeat": str(agent.heartbeat)
+                "heartbeat": str(agent.heartbeat),
+                "template": agent.template
             }
             
             logger.info(f"Agent logged in: {agent_id}")
@@ -106,7 +109,9 @@ async def ping_agent(request: PingRequest, agent_id: str = Depends(verify_auth))
             
             logger.debug(f"Heartbeat updated for agent: {agent_id}")
             
-            return {"message": "Heartbeat updated", "timestamp": datetime.now().isoformat()}
+            return {"message": "Heartbeat updated",
+                    "timestamp": datetime.now().isoformat(),
+                    "template" : agent.template}
         finally:
             db.close()
         

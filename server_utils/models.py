@@ -12,6 +12,7 @@ class AgentRegisterResponse(BaseModel):
     agent_id: str
     api_key: str
     secret_key: str
+    template: str
     message: str
 
 class AgentLoginRequest(BaseModel):

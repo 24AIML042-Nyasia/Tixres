@@ -1,0 +1,67 @@
+from sqlalchemy.orm import Session
+from sqlalchemy import update
+
+import json
+
+from server_db.models import Agent
+
+def set_template(db: Session, template: str, agent_id: str):
+    stmt = (
+        update(Agent)
+        .where(Agent.agent_id == agent_id)
+        .values(template=template)
+    )
+
+    db.execute(stmt)
+    db.commit()
+
+def get_template() -> str:
+    """"Get default template"""
+
+    return json.dumps(
+    {
+    'modules': [
+        'cpu_v1.0.0',
+        'memory_v1.0.0',
+        'disk_v1.0.0',
+        'system_v1.0.0',
+        'process_v1.0.0',
+        'network_v1.0.0',
+        'temperature_v1.0.0'
+    ],
+    'metrics': {
+        # # CPU Module
+        # 'cpu_v1.0.0.usage_overall': 5,
+        # 'cpu_v1.0.0.usage_per_core': 10,
+        # 'cpu_v1.0.0.load_average': 15,
+        # 'cpu_v1.0.0.frequency': 10,
+        
+        # # Memory Module
+        'memory_v1.0.0.ram': 5,
+        'memory_v1.0.0.swap': 10,
+        'memory_v1.0.0.cached_vs_free': 15,
+        
+        # # Disk Module
+        # 'disk_v1.0.0.usage': 60,
+        # 'disk_v1.0.0.io': 5,
+        
+        # # System Module
+        # 'system_v1.0.0.uptime': 60,
+        # 'system_v1.0.0.users': 30,
+        # 'system_v1.0.0.process_count': 10,
+        
+        # # Process Module
+        # 'process_v1.0.0.top_cpu': 10,
+        # 'process_v1.0.0.top_memory': 15,
+        # 'process_v1.0.0.zombie_count': 30,
+        # 'process_v1.0.0.total_threads': 15,
+        
+        # # Network Module
+        # 'network_v1.0.0.io': 5,
+        # 'network_v1.0.0.connections': 10,
+        # 'network_v1.0.0.errors': 30,
+        
+        # # Temperature Module
+        # 'temperature_v1.0.0.battery': 60
+    }
+})
