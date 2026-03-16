@@ -1,0 +1,22 @@
+agent_core Sub-folder Documentation:
+
+agent.py:
+- install(): Installs agent details and registers
+- startup(): Loads modules and cleans up old metrics on startup
+
+auth.py:
+- is_registered(): Checks if agent file exists and has agentId
+- register(): Sends registration request to the server
+
+debug.py:
+- print_registries(): Prints loaded module and function registries for debugging
+
+execute.py:
+- runner(fn, interval): Async loop that continually fetches metric function value and inserts into db
+- gather(): Gathers all async runner tasks
+- get_fun(fun_name): Retrieves function from REGISTRY
+- run(task_name): Synchronously safely run a function from REGISTRY
+
+utils.py:
+- val_modules(request: dict) -> bool: Validates if requested modules are in registry
+- load_metrics(request: dict) -> bool: Returns metrics from request object

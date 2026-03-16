@@ -1,0 +1,17 @@
+agent_db Sub-folder Documentation:
+
+connection.py:
+- get_connection(): Returns a sqlite3 connection for the agent database
+- execute(query: str,
+    params: tuple = (),
+    *,
+    fetch: Optional[str] = None) : Execute a SQL query safely using a context manager.
+
+migrations.py:
+- migrate(): Sets up metric_numeric, metric_text, metric_json SQLite tables
+
+models.py:
+- insert_metric(metric_name: str, value): Inserts a metric value into the corresponding DB table
+- fetch_unsent(table: str, limit: int = 100) -> List[Dict[str, Any]]: Fetches unsent metrics from the local db
+- mark_sent(table: str, ids: list[int]): Updates sent status to 1 for given IDs
+- cleanup_old_metrics(days: int = 1): Deletes metrics older than given days

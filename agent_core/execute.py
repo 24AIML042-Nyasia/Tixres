@@ -21,7 +21,7 @@ async def runner(fn, interval):
 
         except Exception as e:
             # print(f"Error in {fn.__name__}: {e}")
-            val = "UNAVAILABLE"
+            val = {'status' : "UNAVAILABLE"}
 
         if(DEBUG):
             met.append(fn)

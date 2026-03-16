@@ -1,38 +1,38 @@
 import json
 from typing import Any, Dict, List
-from agent_db.connection import get_connection
+from agent_db.connection import execute
 
-# conn = get_connection()
-# cursor = conn.cursor()
+# New design solves Leaking SQLite Connections on Exception
 
-def insert_metric(metric_name: str, value):
-    conn = get_connection()
+def insert_metric(metric_name: str, value: Any) -> None:
+    """Insert metric into the appropriate table based on value type."""
 
     if isinstance(value, (int, float)):
-        conn.execute(
+        execute(
             "INSERT INTO metric_numeric (metric_name, value) VALUES (?, ?)",
-            (metric_name, float(value))
+            (metric_name, float(value)),
         )
 
     elif isinstance(value, str):
-        conn.execute(
+        execute(
             "INSERT INTO metric_text (metric_name, value) VALUES (?, ?)",
-            (metric_name, value)
+            (metric_name, value),
         )
 
     else:
-        # dict, list, custom object → JSON
-        conn.execute(
+        execute(
             "INSERT INTO metric_json (metric_name, value) VALUES (?, ?)",
-            (metric_name, json.dumps(value))
+            (metric_name, json.dumps(value)),
         )
 
-    conn.commit()
-    conn.close()
 
-def fetch_unsent(table: str, limit: int = 100)-> List[Dict[str, Any]]:
-    conn = get_connection()
-    cursor = conn.execute(
+# ------------------------------------------------------------------
+
+
+def fetch_unsent(table: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Fetch unsent metrics from a table."""
+
+    rows = execute(
         f"""
         SELECT id, metric_name, value, timestamp
         FROM {table}
@@ -40,39 +40,41 @@ def fetch_unsent(table: str, limit: int = 100)-> List[Dict[str, Any]]:
         ORDER BY timestamp
         LIMIT ?
         """,
-        (limit,)
+        (limit,),
+        fetch="all",
     )
-    rows = cursor.fetchall()
-    conn.close()
 
-    return [dict(row) for row in rows]
+    return [dict(row) for row in rows] if rows else []
 
 
-def mark_sent(table: str, ids: list[int]):
+# ------------------------------------------------------------------
+
+
+def mark_sent(table: str, ids: List[int]) -> None:
+    """Mark metrics as sent."""
+
     if not ids:
         return
 
-    conn = get_connection()
     placeholders = ",".join("?" for _ in ids)
-    conn.execute(
+
+    execute(
         f"UPDATE {table} SET sent = 1 WHERE id IN ({placeholders})",
-        ids
+        tuple(ids),
     )
-    conn.commit()
-    conn.close()
 
 
-def cleanup_old_metrics(days: int = 1):
-    conn = get_connection()
+# ------------------------------------------------------------------
+
+
+def cleanup_old_metrics(days: int = 1) -> None:
+    """Delete old metrics from all tables."""
 
     for table in ["metric_numeric", "metric_text", "metric_json"]:
-        conn.execute(
+        execute(
             f"""
             DELETE FROM {table}
             WHERE timestamp < datetime('now', ?)
             """,
-            (f"-{days} day",)
+            (f"-{days} day",),
         )
-
-    conn.commit()
-    conn.close()

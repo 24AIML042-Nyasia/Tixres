@@ -17,7 +17,7 @@ class AgentConfig:
         self.secret_key: Optional[str] = None
         self.config_file = "agent_config.json"
         
-    def load(self):
+    def load(self)->bool:
         """Load configuration from file"""
         try:
             with open(self.config_file, 'r') as f:

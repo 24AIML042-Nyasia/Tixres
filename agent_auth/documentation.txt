@@ -1,0 +1,22 @@
+agent_auth Sub-folder Documentation:
+
+AgentConfig (Class):
+- load(self): Load configuration from file
+- save(self): Save configuration to file
+- is_registered(self) -> bool: Check if agent is registered
+
+MetricsAgent (Class):
+- _generate_fingerprint(self) -> str: Generate unique fingerprint for this agent
+- register(self, template) -> bool: Register agent with server
+- login(self) -> bool: Login to server and verify credentials
+- ping(self) -> bool: Send heartbeat ping to server
+- submit_metrics(self, metrics) -> bool: Submit batch of metrics to server
+
+hmac.py:
+- create_signature(api_key, secret_key, message) -> str: Create HMAC signature for authentication
+- create_auth_headers(api_key, secret_key) -> Dict[str, str]: Create authentication headers with HMAC signature
+
+stand_alone.py:
+- standalone_register(server_url: str) -> bool: Standalone registration function
+- standalone_login(server_url: str) -> bool: Standalone login function
+- standalone_submit(server_url: str, metrics) -> bool: Standalone metrics submission function

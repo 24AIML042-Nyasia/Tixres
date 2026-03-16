@@ -1,0 +1,9 @@
+agent_utils Sub-folder Documentation:
+
+registry.py:
+- register_module(module): Registers the Module class and its functions into memory registries
+
+utils.py:
+- check_agent_file() -> bool: Checks if the AGENT_FILE path exists
+- load_modules(): Dynamically imports and registers sub-modules from `modules.*` directory
+- load_os_details(): Extracts OS hostname and platform data, saving it inside the AGENT_FILE
