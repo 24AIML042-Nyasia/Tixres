@@ -1,0 +1,24 @@
+This folder manages PostgreSQL connection properties, model definitions, migrations, and standard maintenance operations.
+
+Files and their contents:
+
+1. connection.py
+Classes & Functions:
+- engine: Sets up the SQLAlchemy Engine with `QueuePool`.
+- SessionLocal: Acts as a bound sessionmaker factory instance.
+- get_db(): A context manager / generator function that safely yields database sessions and closes them.
+
+2. models.py
+Classes:
+- AgentCredentials: SQLAlchemy mapping for tracking authentication API and Secret keys.
+- Agent: SQLAlchemy mapping representing connected agents (OS, version, heartbeat).
+- MetricNumeric: SQLAlchemy mapping for storing incoming raw numeric metrics for fast ingestion, linked via ForeignKey to `agents.agent_id`.
+- MetricJson: SQLAlchemy mapping for storing structured or complex JSON metric bodies.
+
+3. migration.py
+Functions:
+- run_migrations(): Creates all defined database tables and schemas stored in metadata.
+
+4. rollups.py
+Functions:
+- retention_policy(): Executes raw SQL queries cleaning up the default raw metrics from `metric_numeric` ensuring they don't surpass standard retention (7 days). Outward rollups limits are currently commented out.

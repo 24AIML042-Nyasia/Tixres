@@ -29,10 +29,13 @@ class TicketService:
             db.close()
 
     @staticmethod
-    def get_Tickets(limit=100) -> list:
+    def get_Tickets(agent_id : str, limit=100 ) -> list:
         db = SessionLocal()
         try:
-            tickets = db.query(Ticket).limit(limit).all()
+            tickets = db.query(Ticket).filter(
+                Ticket.agent_id == agent_id
+            ).limit(limit).all()
+
             return [
                 {
                     'id': t.id,

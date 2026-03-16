@@ -8,26 +8,27 @@ from settings import METRIC_REGEX_PATTERN
 from metric_rollup.rollUpStateService import RollupStateService
 from server_utils.logger import get_logger
 from influx_db.connection import InfluxDBService
+from influx_db.const import (
+    MEASUREMENT_1M ,
+    MEASUREMENT_10M ,
+    MEASUREMENT_1H ,
 
-MEASUREMENT_1M = "metric_numeric_1m"
-MEASUREMENT_10M = "metric_numeric_10m"
-MEASUREMENT_1H = "metric_numeric_1h"
+    TAG_AGENT_ID ,
+    TAG_METRIC ,
+    TAG_VERSION,
+    TAG_UNIT ,
 
-TAG_AGENT_ID = "agent_id"
-TAG_METRIC = "metric"
-TAG_VERSION = "version"
-TAG_UNIT = "unit"
+    FIELD_COUNT,
+    FIELD_MIN,
+    FIELD_MAX,
+    FIELD_SUM,
+    FIELD_AVG ,
+    FIELD_BUCKET_START ,
 
-FIELD_COUNT = "count"
-FIELD_MIN = "min"
-FIELD_MAX = "max"
-FIELD_SUM = "sum"
-FIELD_AVG = "avg"
-FIELD_BUCKET_START = "bucket_start"
-
-SOURCE_POSTGRES = "metric_numeric"
-SOURCE_1M = MEASUREMENT_1M
-SOURCE_10M = MEASUREMENT_10M
+    SOURCE_POSTGRES,
+    SOURCE_1M ,
+    SOURCE_10M 
+)
 
 pattern = re.compile(METRIC_REGEX_PATTERN)
 logger = get_logger()

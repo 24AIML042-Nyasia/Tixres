@@ -1,0 +1,8 @@
+This folder contains utility scripts for ad-hoc debugging and manual data point insertions.
+
+Files and their contents:
+
+1. anomaly.py
+Functions:
+- get_agent_z_score_metric_mapping(): Returns a hardcoded dictionary mapping a specific agent ID to a list of metrics commonly used for Z-score anomaly testing.
+- (Commented out) insert_zscore_cpu_data(): A script designed to insert simulated normal and anomalous CPU metrics into the local PostgreSQL database to manually trigger anomalies for testing.

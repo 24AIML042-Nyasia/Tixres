@@ -1,0 +1,15 @@
+This folder manages connections and configurations related to InfluxDB, the time-series database.
+
+Files and their contents:
+
+1. connection.py
+Classes:
+- InfluxDBService: A service class for interacting with InfluxDB.
+  - getClient(): Authenticates and returns an `InfluxDBClient` instance using environment variables.
+  - getWriteApiSync(client): Returns a synchronous write API object for writing points.
+  - getQueryApi(client): Returns a query API object for querying using Flux.
+  - getOrg(): Retrieves the configured InfluxDB organization.
+  - getBucket(): Retrieves the configured InfluxDB bucket.
+
+2. const.py
+- Defines string constants for tags, fields, measurements (e.g., metric_numeric_1m, metric_numeric_10m), and source metadata names used throughout the InfluxDB storage processes.

@@ -1,0 +1,24 @@
+This folder contains models and service logic for calculating metric aggregations and saving them correctly.
+
+Files and their contents:
+
+1. models.py
+Classes:
+- RollupState: SQLAlchemy model for maintaining the last processed data point's timestamp to prevent redundant processing. Contains the source table, target table, and `last_bucket` context.
+
+2. rollUpStateService.py
+Classes & Functions:
+- RollupStateService: Database interaction service.
+  - get_last_bucket(db, source, target): Returns the last processed timestamp for a particular metric origin and destination.
+  - update_last_bucket(db, source, target, bucket_time): Updates or creates the new timestamp marker.
+
+3. rollUp.py
+Classes & Functions:
+- InfluxDBRollup: Calculates metric aggregations across different time buckets and ingests them into InfluxDB.
+  - _parse_metric_name(metric_name): Parses metric strings into name, version, and units using regex.
+  - _create_point(...): Generates an InfluxDB `Point` object with calculated averages, tag metadata, and bucket start time.
+  - _write_points(points): Bulk writes points to InfluxDB.
+  - one_min_roll_up(): Fetches 1-minute aggregations from PostgreSQL and pushes them into InfluxDB using `bucket_start`.
+  - ten_min_roll_up(): Uses Flux to query the `metric_numeric_1m` 1-minute aggregations from InfluxDB, rolls it up to 10-minutes, and writes it back.
+  - one_hour_roll_up(): Similar to the 10-minute rollup; aggregates the `metric_numeric_10m` measurement to hourly points.
+  - close() / __del__(): Releases database connections securely.

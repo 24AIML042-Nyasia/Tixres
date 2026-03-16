@@ -1,5 +1,5 @@
-Roll up code cleanup needed , 
-roll up logic update needed in celery
+retention_policy for influx
 
 Module validation at agent side
 
+No avg in roll ups

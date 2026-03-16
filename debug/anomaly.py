@@ -2,68 +2,13 @@ from datetime import datetime, timedelta
 from server_db.connection import get_db
 import random
 
-def insert_zscore_10m_cpu_data():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    query = """
-        INSERT OR REPLACE INTO metric_numeric_10m
-        (agent_id, metric_name, bucket_start, count, min, max, sum, avg)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """
-
-    agent_id = "agent_TrxsBcR6m-O97zHx48Om7Q"
-    metric_name = "cpu_v1.0.0.usage_overall"
-
-    now = datetime.now().replace(second=0, microsecond=0)
-    rows = []
-
-    # 27 NORMAL buckets (avg ≈ 15)
-    for i in range(27):
-        avg = round(random.uniform(14.8, 15.2), 2)
-        count = 10
-        rows.append((
-            agent_id,
-            metric_name,
-            (now - timedelta(minutes=(30 - i) * 10)).strftime("%Y-%m-%d %H:%M:00"),
-            count,
-            avg - 0.5,
-            avg + 0.5,
-            avg * count,
-            avg
-        ))
-
-    # Mild anomaly (Z ≈ 2–3)
-    rows.append((
-        agent_id,
-        metric_name,
-        (now - timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M:00"),
-        10,
-        25.0,
-        26.0,
-        255.0,
-        25.5
-    ))
-
-    # 🔥 EXTREME anomaly (Z >> 4)
-    rows.append((
-        agent_id,
-        metric_name,
-        now.strftime("%Y-%m-%d %H:%M:00"),
-        10,
-        450.0,
-        520.0,
-        4900.0,
-        490.0
-    ))
-
-    cursor.executemany(query, rows)
-    conn.commit()
-    conn.close()
-
 def get_agent_z_score_metric_mapping() -> dict :
     return {
-        "agent_Pmx0GZGOc4z2-F1rw9V3nw" : ["cpu_v1.0.0.usage_overall"]
+        "agent_Pmx0GZGOc4z2-F1rw9V3nw" : ['process_v1.0.0.zombie_count ',
+                                           'system_v1.0.0.process_count', 
+                                           'process_v1.0.0.total_threads' ,
+                                           'cpu_v1.0.0.usage_overall',
+                                           'cpu_usage_v1_percent']
     }
 
 

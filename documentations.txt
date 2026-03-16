@@ -1,0 +1,32 @@
+This folder contains scripts for server initialization, debugging, migration, and testing.
+
+Files and their contents:
+
+1. server.py
+Functions:
+- register_agent_endpoint(request: AgentRegisterRequest): API endpoint for registering new agents.
+- login_agent_endpoint(request: AgentLoginRequest, agent_id: str): API endpoint for agent authentication.
+- ping_agent_endpoint(request: PingRequest, agent_id: str): API endpoint for agent heartbeat/ping.
+- submit_metrics_endpoint(request: MetricBatchRequest, agent_id: str): API endpoint for submitting metric batches.
+- get_dashboard(agent_id: str, db: Session): API endpoint to fetch dashboard layout/widgets data.
+- get_latest_tickets_endpoint(agent_id: str, limit: int): API endpoint to retrieve recent anomaly tickets.
+- startup_event(): FastAPI startup lifecycle hook, initializes retention policy.
+- root(): Standard API info endpoint.
+- health_check(): Standard health check returning current timestamp.
+
+2. test.py
+Functions:
+- test_connection(): Verifies the database connection using SQLAlchemy.
+- test_tables(): Confirms required tables exist in the PostgreSQL database.
+- test_indexes(): Confirms index definitions (e.g., idx_metric_raw_time) exist.
+- test_foreign_keys(): Validates referential integrity definitions between tables.
+- main(): Test runner that aggregates results and reports success/failure.
+
+3. debug.py
+- A utility script used for ad-hoc debugging of ticket querying.
+
+4. migrate.py
+- A utility script used for running database migrations or dropping tables.
+
+5. settings.py
+- Holds global settings, e.g., METRIC_REGEX_PATTERN.

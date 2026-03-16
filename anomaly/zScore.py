@@ -7,7 +7,7 @@ from ticket_service.ticketService import TicketService
 from anomaly.const import AVA_METRIC_TABLES, AVA_ATTRIBUTES
 from anomaly.anomalyService import AnomalyService
 from influx_db.connection import InfluxDBService
-
+from influx_db.const import MEASUREMENT_1M
 
 class ZScoreAnomaly(BaseAnomaly):
     detector_name = "zscore_v1"
@@ -17,15 +17,15 @@ class ZScoreAnomaly(BaseAnomaly):
         agent_id: str,
         metrics: list,
         window: int = 30,
-        measurement: str = "metric_numeric_10m",
-        on: str = "avg",
+        measurement: str = MEASUREMENT_1M,
+        on: str = "sum",
     ):
         self.agent_id = agent_id
         self.metrics = metrics
         self.window = window
 
         self.measurement = measurement if measurement in AVA_METRIC_TABLES else "metric_numeric_10m"
-        self.on = on if on in AVA_ATTRIBUTES else "avg"
+        self.on = on if on in AVA_ATTRIBUTES else "sum"
 
     def _get_agent_metrics(self):
         if not self.metrics:

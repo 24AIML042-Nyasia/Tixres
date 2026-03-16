@@ -5,6 +5,9 @@ demo_agent.py
 init_db.py
 test_system.py
 tables.py
+bugs.txt
+test.py
+debug.py
 
 
 # Celery beat schedule
@@ -15,3 +18,6 @@ celerybeat-schedule*
 
 
 *.env
+
+.venv/
+influxdb-data/

@@ -1,0 +1,10 @@
+This folder handles HTTP route middleware and authentication logic for the API.
+
+Files and their contents:
+
+1. hmac.py
+Functions:
+- generate_credentials(): Utility to mathematically generate safe, random API keys and secret keys.
+- create_signature(api_key, secret_key, message): Generates an HMAC SHA256 signature using the secret key and the combined string of API key and message payload.
+- verify_signature(api_key, message, signature): Checks the database if the API key exists and is active, then validates the provided signature against a regenerated HMAC string.
+- verify_auth(x_api_key, x_signature, x_message): FastAPI dependency/middleware that intercepts requests, checks the signature logic, identifies the agent_id, and either authorizes the payload or returns a 401 Unauthorized exception.

@@ -1,0 +1,28 @@
+This folder contains components for detecting anomalies in metrics based on statistical analysis.
+
+Files and their contents:
+
+1. baseAnomaly.py
+Classes:
+- BaseAnomaly: Abstract base class defining the standard interface for all anomaly detectors, ensuring they implement the `detect_anomaly` method.
+
+2. const.py
+- Defines constants required for anomaly detection configurations, such as AVA_METRIC_TABLES ('metric_numeric_1m', 'metric_numeric_10m', 'metric_numeric_1h') and AVA_ATTRIBUTES ('avg', 'sum', 'min', 'max', 'count').
+
+3. models.py
+Classes:
+- AnomalyState: SQLAlchemy model representing the `anomaly_state` table in the relational database. It stores the last processed data bucket (`last_bucket`) for a specific combination of table, detector, agent, and metric.
+
+4. anomalyService.py
+Classes & Functions:
+- AnomalyService: A database interaction service class.
+  - insertOrReplace(table, detector, agent_id, metric_name, latest_bucket): Inserts a new anomaly state record or updates an existing one with the latest processed bucket.
+  - selectOne(table, detector, agent_id, metric_name): Retrieves the `last_bucket` timestamp for a given anomaly setup to prevent redundant processing.
+
+5. zScore.py
+Classes & Functions:
+- ZScoreAnomaly (Inherits from BaseAnomaly): Implements anomaly detection using the Z-score algorithm.
+  - __init__(agent_id, metrics, window, measurement, on): Initializes the detector config.
+  - _get_agent_metrics(): Constructs and executes a Flux query against InfluxDB to retrieve historical data for the configured window.
+  - detect_anomaly(): Main pipeline method that fetches metrics, checks if they've been processed (via AnomalyService), calculates the Z-score, updates the service state, and returns anomalies.
+  - _calc_Z_score(rows, metric): Mathematical component that calculates mean, variance, and standard deviation, computes the Z-score, determines severity (P2, P3, P4), and generates tickets for anomalies via TicketService.
