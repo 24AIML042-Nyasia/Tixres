@@ -143,6 +143,7 @@ class ZScoreAnomaly(BaseAnomaly):
             return None
 
         TicketService.create_ticket(
+            db=SessionLocal(),
             agent_id=self.agent_id,
             metric_name=metric,
             severity=severity,
