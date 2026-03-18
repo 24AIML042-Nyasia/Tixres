@@ -21,3 +21,5 @@ celerybeat-schedule*
 
 .venv/
 influxdb-data/
+
+*.db

@@ -1,14 +1,56 @@
-from sqlalchemy.orm import Session
-from ticket_service.models import Ticket
-from datetime import datetime, timedelta
-from sqlalchemy import and_
+"""
+TicketService
+=============
+Handles creation, deduplication, and retrieval of Tickets.
+
+Deduplication strategy
+-----------------------
+A duplicate is an OPEN ticket for the same (agent_id, metric_name, severity)
+within the configured time window.  When a duplicate is found the incoming
+event is *merged* rather than creating a new row:
+
+  * detectors      → union (sorted, no duplicates)
+  * occurrence_count → incremented
+  * last_occurred_at → refreshed
+  * message          → updated to the latest value
+
+The `detector` field is intentionally excluded from the match key so that
+events from different detectors for the same issue collapse into one ticket.
+
+P4 filtering
+------------
+P4 tickets are stored in the DB for audit purposes but are:
+  * Excluded from the deduplication window query via ``_find_duplicate``
+    (``severity != 'P4'`` filter).
+  * Never forwarded to AlertService.
+  * Excluded from ``get_tickets`` by default (``include_p4=False``).
+"""
+
+from __future__ import annotations
+
 import json
+from datetime import datetime, timedelta
+
+from sqlalchemy import and_
+from sqlalchemy.orm import Session
+
+from ticket_service.models import Ticket
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+_P4_SEVERITY = "P4"
 
 
 class TicketService:
 
     DEDUP_WINDOW_MINUTES = 60
-    DEDUP_FIELDS = ['agent_id', 'metric_name', 'severity']  # detectors are merged, not matched
+
+    # Fields that must match for two events to be considered duplicates.
+    # Note: `detector` is deliberately absent — see module docstring.
+    DEDUP_FIELDS = ["agent_id", "metric_name", "severity"]
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -16,65 +58,84 @@ class TicketService:
 
     @staticmethod
     def _find_duplicate(
-        db,
+        db: Session,
         agent_id: str,
         metric_name: str,
         severity: str,
-        window_minutes: int = None
+        window_minutes: int | None = None,
     ) -> Ticket | None:
         """
-        Find an existing OPEN ticket matching agent_id + metric_name + severity
-        within the deduplication time window.
+        Find an existing OPEN, non-P4 ticket that can absorb the incoming event.
 
-        Note: `detector` is intentionally excluded from matching — duplicate tickets
-        from different detectors are merged into the same ticket rather than forked.
+        Matching criteria
+        -----------------
+        * agent_id, metric_name, severity — identity triple.
+        * status == 'OPEN'               — don't reopen closed tickets.
+        * severity != 'P4'               — P4 tickets are never deduplicated;
+                                           each P4 event always inserts a new row
+                                           (they are audit-only, not actionable).
+        * first_occurred_at >= cutoff    — within the dedup window.
 
         Args:
-            db: Active SQLAlchemy session.
-            agent_id, metric_name, severity: Identity fields for deduplication.
-            window_minutes: Look-back window in minutes. Defaults to DEDUP_WINDOW_MINUTES.
+            db:             Active SQLAlchemy session.
+            agent_id:       Agent identifier.
+            metric_name:    Metric that fired.
+            severity:       Severity level of the incoming event.
+            window_minutes: Override for DEDUP_WINDOW_MINUTES.
 
         Returns:
-            Matching Ticket or None.
+            Matching Ticket ORM object, or None.
         """
-        cutoff = datetime.now() - timedelta(minutes=window_minutes or TicketService.DEDUP_WINDOW_MINUTES)
+        # P4 tickets are never deduplicated — early exit keeps the query simple
+        if severity == _P4_SEVERITY:
+            return None
 
-        return db.query(Ticket).filter(
-            and_(
-                Ticket.agent_id == agent_id,
-                Ticket.metric_name == metric_name,
-                Ticket.severity == severity,
-                Ticket.status == 'OPEN',
-                Ticket.first_occurred_at >= cutoff
+        cutoff = datetime.now() - timedelta(
+            minutes=window_minutes or TicketService.DEDUP_WINDOW_MINUTES
+        )
+
+        return (
+            db.query(Ticket)
+            .filter(
+                and_(
+                    Ticket.agent_id    == agent_id,
+                    Ticket.metric_name == metric_name,
+                    Ticket.severity    == severity,
+                    Ticket.status      == "OPEN",
+                    Ticket.first_occurred_at >= cutoff,
+                )
             )
-        ).first()
+            .first()
+        )
 
     @staticmethod
     def _merge_into(existing: Ticket, detector: str, message: str) -> None:
         """
         Merge an incoming duplicate event into an existing ticket in-place.
 
-        Merge strategy:
-        - `detectors`: union of existing + incoming detector (no duplicates).
-        - `last_occurred_at`: updated to now.
-        - `occurrence_count`: incremented by 1.
-        - `message`: updated to the latest message for freshness.
-        - All other fields (severity, meta, first_occurred_at) are preserved.
+        Merge strategy
+        --------------
+        * detectors       : union — new detector appended if not already present,
+                            result re-sorted for stable storage.
+        * last_occurred_at: set to now (freshness).
+        * occurrence_count: incremented by 1.
+        * message         : replaced with the latest message.
+        * All other fields (severity, meta, first_occurred_at, agent_id) are
+          left untouched.
 
         Args:
-            existing: The Ticket ORM object to mutate.
-            detector: Detector name from the incoming duplicate event.
-            message: Latest message from the incoming event.
+            existing: The Ticket ORM object to mutate (not yet committed).
+            detector: Detector name from the incoming event.
+            message:  Latest human-readable description.
         """
-        # Merge detectors — preserve as a sorted unique JSON array
-        current_detectors: list = json.loads(existing.detectors or '[]')
+        current_detectors: list[str] = json.loads(existing.detectors or "[]")
         if detector not in current_detectors:
             current_detectors.append(detector)
             existing.detectors = json.dumps(sorted(current_detectors))
 
         existing.last_occurred_at = datetime.now()
         existing.occurrence_count = (existing.occurrence_count or 1) + 1
-        existing.message = message  # keep the freshest message
+        existing.message          = message
 
     # ------------------------------------------------------------------
     # Public API
@@ -90,38 +151,50 @@ class TicketService:
         meta: str,
         message: str,
         dedup: bool = True,
-        dedup_window_minutes: int = None
+        dedup_window_minutes: int | None = None,
     ) -> dict:
         """
         Create a new ticket or merge into an existing one if a duplicate is found.
 
-        Deduplication & merge flow:
+        P4 behaviour
+        ------------
+        P4 tickets bypass deduplication and are always inserted as new rows.
+        They are stored for audit/observability but are never forwarded to
+        AlertService and are excluded from ``get_tickets`` by default.
+
+        Deduplication & merge flow (non-P4)
+        ------------------------------------
         1. Search for an OPEN ticket matching (agent_id, metric_name, severity)
            within the dedup window.
-        2. If found → merge: add detector to the detectors list, bump occurrence_count,
-           update last_occurred_at and message. No new row is created.
-        3. If not found → insert a fresh ticket with detectors=[detector],
-           occurrence_count=1, first/last_occurred_at=now.
+        2. Found → merge: union detectors, bump occurrence_count,
+                          refresh last_occurred_at and message.
+           Not found → insert a fresh ticket row.
 
         Args:
-            agent_id: ID of the agent raising the ticket.
-            metric_name: Name of the metric that triggered the ticket.
-            severity: Severity level (e.g., 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL').
-            detector: Name of the detector that identified the issue.
-            meta: Additional metadata as a JSON-serialized string.
-            message: Human-readable description of the issue.
-            dedup: Whether to apply deduplication/merge logic. Defaults to True.
-            dedup_window_minutes: Override the default deduplication window.
+            db:                   Active SQLAlchemy session.
+            agent_id:             ID of the agent raising the ticket.
+            metric_name:          Name of the metric that triggered the ticket.
+            severity:             Severity level (P1 / P2 / P3 / P4).
+            detector:             Name of the detector that identified the issue.
+            meta:                 Additional metadata as a JSON-serialized string.
+            message:              Human-readable description of the issue.
+            dedup:                Whether to apply dedup/merge logic. Default True.
+                                  Always False for P4 regardless of this flag.
+            dedup_window_minutes: Override the default 60-minute dedup window.
 
         Returns:
-            dict with:
-                - 'created' (bool): True if a new ticket row was inserted.
-                - 'merged' (bool): True if an existing ticket was updated.
-                - 'ticket_id' (int): ID of the new or existing ticket.
-                - 'occurrence_count' (int): Updated occurrence count.
+            dict with keys:
+              - created (bool)         : True if a new row was inserted.
+              - merged (bool)          : True if an existing ticket was updated.
+              - ticket_id (int)        : ID of the new or existing ticket.
+              - occurrence_count (int) : Updated occurrence count.
+              - is_p4 (bool)           : True when severity is P4.
         """
         try:
-            if dedup:
+            # P4: always insert; never deduplicate
+            effective_dedup = dedup and (severity != _P4_SEVERITY)
+
+            if effective_dedup:
                 existing = TicketService._find_duplicate(
                     db, agent_id, metric_name, severity, dedup_window_minutes
                 )
@@ -130,72 +203,87 @@ class TicketService:
                     db.commit()
                     db.refresh(existing)
                     return {
-                        'created': False,
-                        'merged': True,
-                        'ticket_id': existing.id,
-                        'occurrence_count': existing.occurrence_count
+                        "created"         : False,
+                        "merged"          : True,
+                        "ticket_id"       : existing.id,
+                        "occurrence_count": existing.occurrence_count,
+                        "is_p4"           : False,
                     }
 
             ticket = Ticket(
-                agent_id=agent_id,
-                metric_name=metric_name,
-                severity=severity,
-                status = 'OPEN',
-                detectors=json.dumps([detector]),
-                meta=meta,
-                message=message,
-                occurrence_count=1,
-                first_occurred_at=datetime.now(),
-                last_occurred_at=datetime.now(),
-                created_at=datetime.now()
+                agent_id          = agent_id,
+                metric_name       = metric_name,
+                severity          = severity,
+                status            = "OPEN",
+                detectors         = json.dumps([detector]),
+                meta              = meta,
+                message           = message,
+                occurrence_count  = 1,
+                first_occurred_at = datetime.now(),
+                last_occurred_at  = datetime.now(),
+                created_at        = datetime.now(),
             )
             db.add(ticket)
             db.commit()
             db.refresh(ticket)
 
             return {
-                'created': True,
-                'merged': False,
-                'ticket_id': ticket.id,
-                'occurrence_count': 1
+                "created"         : True,
+                "merged"          : False,
+                "ticket_id"       : ticket.id,
+                "occurrence_count": 1,
+                "is_p4"           : severity == _P4_SEVERITY,
             }
         finally:
             db.close()
 
     @staticmethod
-    def get_tickets(db : Session, agent_id: str, limit: int = 100) -> list[dict]:
+    def get_tickets(
+        db: Session,
+        agent_id: str,
+        limit: int = 100,
+        include_p4: bool = False,
+    ) -> list[dict]:
         """
         Retrieve tickets for a given agent, ordered by most recent activity first.
 
         Args:
-            agent_id: ID of the agent whose tickets to fetch.
-            limit: Maximum number of tickets to return. Defaults to 100.
+            db:         Active SQLAlchemy session.
+            agent_id:   ID of the agent whose tickets to fetch.
+            limit:      Maximum number of tickets to return. Default 100.
+            include_p4: When False (default), P4 tickets are excluded from
+                        results. Set True only for audit/debug views.
 
         Returns:
             List of ticket dicts. `detectors` is returned as a Python list.
         """
         try:
+            query = db.query(Ticket).filter(Ticket.agent_id == agent_id)
+
+            if not include_p4:
+                query = query.filter(Ticket.severity != _P4_SEVERITY)
+
             tickets = (
-                db.query(Ticket)
-                .filter(Ticket.agent_id == agent_id)
+                query
                 .order_by(Ticket.last_occurred_at.desc())
                 .limit(limit)
                 .all()
             )
+
             return [
                 {
-                    'id': t.id,
-                    'agent_id': t.agent_id,
-                    'metric_name': t.metric_name,
-                    'severity': t.severity,
-                    'status': t.status,
-                    'detectors': json.loads(t.detectors or '[]'),
-                    'meta': t.meta,
-                    'message': t.message,
-                    'occurrence_count': t.occurrence_count,
-                    'first_occurred_at': t.first_occurred_at,
-                    'last_occurred_at': t.last_occurred_at,
-                    'created_at': t.created_at
+                    "id"              : t.id,
+                    "agent_id"        : t.agent_id,
+                    "metric_name"     : t.metric_name,
+                    "severity"        : t.severity,
+                    "status"          : t.status,
+                    "detectors"       : json.loads(t.detectors or "[]"),
+                    "meta"            : t.meta,
+                    "message"         : t.message,
+                    "occurrence_count": t.occurrence_count,
+                    "first_occurred_at": t.first_occurred_at,
+                    "last_occurred_at" : t.last_occurred_at,
+                    "created_at"      : t.created_at,
                 }
                 for t in tickets
             ]
