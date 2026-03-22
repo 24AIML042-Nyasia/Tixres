@@ -17,7 +17,7 @@ from server_auth.hmac import verify_auth
 
 from ticket_service.ticketService import TicketService
 
-from server_routes.agent_routes import register_agent, login_agent, ping_agent
+from server_routes.agent_routes import register_agent, login_agent, ping_agent, run_resolver
 from server_routes.metrics_routes import submit_metrics
 
 from server_routes.ui_dashboard_routes import build_dashboard_payload

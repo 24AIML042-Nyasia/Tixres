@@ -16,6 +16,8 @@ from agent_adapter.templates import get_template
 
 logger = get_logger()
 
+tempCache = {}
+
 async def register_agent(request: AgentRegisterRequest):
     try:
         api_key, secret_key = generate_credentials()
@@ -85,6 +87,7 @@ async def login_agent(request: AgentLoginRequest, agent_id: str = Depends(verify
             
             logger.info(f"Agent logged in: {agent_id}")
             
+            await run_resolver(agent_id)
             return AgentLoginResponse(
                 message="Login successful",
                 agent_info=agent_info
@@ -106,15 +109,21 @@ async def ping_agent(request: PingRequest, agent_id: str = Depends(verify_auth))
             if agent:
                 agent.heartbeat = datetime.now()
                 db.commit()
-            
+                          
             logger.debug(f"Heartbeat updated for agent: {agent_id}")
             
             return {"message": "Heartbeat updated",
                     "timestamp": datetime.now().isoformat(),
-                    "template" : agent.template}
+                    "template" : agent.template,
+                    "action" : tempCache[agent_id]
+                    }
         finally:
+            tempCache[agent_id] = False
             db.close()
         
     except Exception as e:
         logger.error(f"Error updating heartbeat: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ping failed: {str(e)}")
+
+async def run_resolver(agent_id: str = Depends(verify_auth)):
+    tempCache.update({agent_id : True})
