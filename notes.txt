@@ -3,3 +3,5 @@ retention_policy for influx
 Module validation at agent side
 
 No avg in roll ups
+
+domain aware agent handeling
