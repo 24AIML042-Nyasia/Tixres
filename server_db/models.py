@@ -66,6 +66,6 @@ class MetricJson(Base):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
     
     __table_args__ = (
-        Index('idx_metric_raw_time', 'timestamp'),
+        Index('idx_metric_json_time', 'timestamp'),
     )
     

@@ -19,6 +19,10 @@ Classes & Functions:
   - _create_point(...): Generates an InfluxDB `Point` object with calculated averages, tag metadata, and bucket start time.
   - _write_points(points): Bulk writes points to InfluxDB.
   - one_min_roll_up(): Fetches 1-minute aggregations from PostgreSQL and pushes them into InfluxDB using `bucket_start`.
-  - ten_min_roll_up(): Uses Flux to query the `metric_numeric_1m` 1-minute aggregations from InfluxDB, rolls it up to 10-minutes, and writes it back.
-  - one_hour_roll_up(): Similar to the 10-minute rollup; aggregates the `metric_numeric_10m` measurement to hourly points.
-  - close() / __del__(): Releases database connections securely.
+ - ten_min_roll_up(): Uses Flux to query the `metric_numeric_1m` 1-minute aggregations from InfluxDB, rolls it up to 10-minutes, and writes it back.
+ - one_hour_roll_up(): Similar to the 10-minute rollup; aggregates the `metric_numeric_10m` measurement to hourly points.
+ - close() / __del__(): Releases database connections securely.
+
+Test environment notes:
+- Integration tests run against an in-memory SQLite database and do not exercise the InfluxDB rollup jobs. The tables are created on startup so the app boots, but Flux/Influx writes are skipped unless you explicitly invoke the rollup tasks with a live InfluxDB configured via env vars (`INFLUX_URL`, `INFLUX_TOKEN`, `INFLUX_ORG`, `INFLUX_BUCKET`).
+- The SQL in `one_min_roll_up` uses PostgreSQL functions (`date_trunc`). Running rollups while pointed at SQLite will fail; use Postgres for rollups.
