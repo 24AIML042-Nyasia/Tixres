@@ -11,11 +11,11 @@ from guidance.models import Priority
 class GuidanceUpsert(BaseModel):
     """
     Used for both create and update.
-    metric_name + severity identify the record; the remaining fields are the
+    metric_name + priority + purpose identify the record; the remaining fields are the
     updatable payload.
     """
     metric_name: str = Field(..., min_length=1, max_length=255, example="cpu_usage")
-    severity: str = Field(..., min_length=1, max_length=100, example="high")
+    purpose: str = Field(default="general", min_length=1, max_length=100, example="general")
     priority: Priority = Field(default=Priority.P4)
     resolution_steps: List[dict[str, Any]] = Field(
         default_factory=List,
@@ -42,7 +42,7 @@ class GuidanceUpdate(BaseModel):
 class GuidanceResponse(BaseModel):
     id: int
     metric_name: str
-    severity: str
+    purpose: str
     priority: Priority
     resolution_steps: List[dict[str, Any]]
     resolver_notes: Optional[str]

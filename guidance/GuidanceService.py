@@ -1,11 +1,11 @@
 """
 guidance/guidance_service.py
-─────────────────────────────
+----------------------------
 Service layer for the Guidance feature.
 
 Key invariant enforced here:
-  - (metric_name, severity) is the natural unique key.
-  - There is exactly ONE record per pair — upsert handles create/update
+  - (metric_name, priority, purpose) is the natural unique key.
+  - There is exactly ONE record per tuple — upsert handles create/update
     transparently.
   - Direct updates are restricted to the three mutable payload fields:
     resolution_steps, resolver_notes, resolution_meta.
@@ -55,15 +55,14 @@ class GuidanceService:
 
     def upsert(self, payload: GuidanceUpsert) -> tuple[GuidanceResponse, bool]:
         """
-        Create or update the guidance record for (metric_name, severity).
+        Create or update the guidance record for (metric_name, priority, purpose).
 
         Returns (GuidanceResponse, created: bool).
         created=True  → new record was inserted.
         created=False → existing record was updated.
 
-        The natural key (metric_name, severity) is immutable once created;
-        only resolution_steps, resolver_notes, resolution_meta, and priority
-        are written on update.
+        The natural key (metric_name, priority, purpose) is immutable once created;
+        only resolution_steps, resolver_notes, and resolution_meta are written on update.
         """
         record, created = crud.upsert_guidance(self.db, payload)
         return GuidanceResponse.model_validate(record), created
@@ -78,10 +77,10 @@ class GuidanceService:
             raise GuidanceNotFoundError(f"id={guidance_id}")
         return GuidanceResponse.model_validate(record)
 
-    def get_by_natural_key(self, metric_name: str, severity: str) -> GuidanceResponse:
-        record = crud.get_guidance_by_natural_key(self.db, metric_name, severity)
+    def get_by_natural_key(self, metric_name: str, priority: Priority, purpose: str = "general") -> GuidanceResponse:
+        record = crud.get_guidance_by_natural_key(self.db, metric_name, priority, purpose)
         if record is None:
-            raise GuidanceNotFoundError(f"metric='{metric_name}', severity='{severity}'")
+            raise GuidanceNotFoundError(f"metric='{metric_name}', priority='{priority}', purpose='{purpose}'")
         return GuidanceResponse.model_validate(record)
 
     def list(
@@ -91,16 +90,16 @@ class GuidanceService:
         limit: int = 20,
         priority: Optional[Priority] = None,
         metric_name: Optional[str] = None,
-        severity: Optional[str] = None,
+        purpose: Optional[str] = None,
     ) -> GuidanceListResponse:
-        """Paginated list with optional filters on priority, metric_name, severity."""
+        """Paginated list with optional filters on priority, metric_name, purpose."""
         total, records = crud.get_all_guidance(
             self.db,
             skip=skip,
             limit=limit,
             priority=priority,
             metric_name=metric_name,
-            severity=severity,
+            purpose=purpose,
         )
         return GuidanceListResponse(
             total=total,
@@ -122,15 +121,15 @@ class GuidanceService:
         return GuidanceResponse.model_validate(record)
 
     def update_by_natural_key(
-        self, metric_name: str, severity: str, payload: GuidanceUpdate
+        self, metric_name: str, priority: Priority, payload: GuidanceUpdate, purpose: str = "general"
     ) -> GuidanceResponse:
         """
-        Patch mutable fields by the natural key (metric_name, severity).
+        Patch mutable fields by the natural key (metric_name, priority, purpose).
         Convenience wrapper — prefer upsert() when the full payload is available.
         """
-        record = crud.get_guidance_by_natural_key(self.db, metric_name, severity)
+        record = crud.get_guidance_by_natural_key(self.db, metric_name, priority, purpose)
         if record is None:
-            raise GuidanceNotFoundError(f"metric='{metric_name}', severity='{severity}'")
+            raise GuidanceNotFoundError(f"metric='{metric_name}', priority='{priority}', purpose='{purpose}'")
         updated = crud.update_guidance_by_id(self.db, record.id, payload)
         return GuidanceResponse.model_validate(updated)
 
@@ -143,23 +142,23 @@ class GuidanceService:
             raise GuidanceNotFoundError(f"id={guidance_id}")
         return {"deleted": True, "id": guidance_id}
 
-    def delete_by_natural_key(self, metric_name: str, severity: str) -> dict:
-        if not crud.delete_guidance_by_natural_key(self.db, metric_name, severity):
-            raise GuidanceNotFoundError(f"metric='{metric_name}', severity='{severity}'")
-        return {"deleted": True, "metric_name": metric_name, "severity": severity}
+    def delete_by_natural_key(self, metric_name: str, priority: Priority, purpose: str = "general") -> dict:
+        if not crud.delete_guidance_by_natural_key(self.db, metric_name, priority, purpose):
+            raise GuidanceNotFoundError(f"metric='{metric_name}', priority='{priority}', purpose='{purpose}'")
+        return {"deleted": True, "metric_name": metric_name, "priority": priority, "purpose": purpose}
 
     # ------------------------------------------------------------------ #
     #  Helpers / aggregates                                               #
     # ------------------------------------------------------------------ #
 
-    def get_resolution_steps(self, metric_name: str, severity: str) -> List[dict]:
+    def get_resolution_steps(self, metric_name: str, priority: Priority, purpose: str = "general") -> List[dict]:
         """
-        Return only the resolution_steps for a (metric_name, severity) pair.
+        Return only the resolution_steps for a (metric_name, priority, purpose) tuple.
         Lightweight lookup during active incident triage.
         """
-        record = crud.get_guidance_by_natural_key(self.db, metric_name, severity)
+        record = crud.get_guidance_by_natural_key(self.db, metric_name, priority, purpose)
         if record is None:
-            raise GuidanceNotFoundError(f"metric='{metric_name}', severity='{severity}'")
+            raise GuidanceNotFoundError(f"metric='{metric_name}', priority='{priority}', purpose='{purpose}'")
         return record.resolution_steps or []
 
     def summarize_by_priority(self) -> dict[str, int]:

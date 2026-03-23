@@ -75,6 +75,7 @@ class ResolutionService:
             .filter(
                 Ticket.metric_name == alert.metric_name,
                 Ticket.severity    == alert.severity,
+                Ticket.purpose     == getattr(alert, "purpose", "general"),
                 Ticket.status      == "OPEN",
             )
             .all()

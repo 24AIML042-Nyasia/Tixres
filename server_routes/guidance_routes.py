@@ -22,7 +22,7 @@ def upsert_guidance(
     payload: GuidanceUpsert,
     service: GuidanceService = Depends(get_guidance_service)
 ):
-    """Create or update a Guidance record by natural key (metric_name, severity)."""
+    """Create or update a Guidance record by natural key (metric_name, priority, purpose)."""
     record, created = service.upsert(payload)
     return record
 
@@ -32,13 +32,13 @@ def list_guidance(
     limit: int = Query(20, ge=1, le=100),
     priority: Optional[Priority] = None,
     metric_name: Optional[str] = None,
-    severity: Optional[str] = None,
+    purpose: Optional[str] = Query(None),
     service: GuidanceService = Depends(get_guidance_service)
 ):
     """List and filter Guidance records."""
     return service.list(
         skip=skip, limit=limit, priority=priority,
-        metric_name=metric_name, severity=severity
+        metric_name=metric_name, purpose=purpose
     )
 
 @router.get("/summary/stats")
@@ -49,12 +49,13 @@ def get_guidance_summary(service: GuidanceService = Depends(get_guidance_service
 @router.get("/by-key", response_model=GuidanceResponse)
 def get_guidance_by_natural_key(
     metric_name: str = Query(...),
-    severity: str = Query(...),
+    priority: Priority = Query(...),
+    purpose: str = Query("general"),
     service: GuidanceService = Depends(get_guidance_service)
 ):
-    """Get a Guidance record by its natural key."""
+    """Get a Guidance record by its natural key (metric_name, priority, purpose)."""
     try:
-        return service.get_by_natural_key(metric_name, severity)
+        return service.get_by_natural_key(metric_name, priority, purpose)
     except GuidanceNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -95,11 +96,12 @@ def delete_guidance(
 @router.get("/by-key/steps")
 def get_guidance_steps(
     metric_name: str = Query(...),
-    severity: str = Query(...),
+    priority: Priority = Query(...),
+    purpose: str = Query("general"),
     service: GuidanceService = Depends(get_guidance_service)
 ):
-    """Get only the resolution steps for a given natural key."""
+    """Get only the resolution steps for a given natural key (metric_name, priority, purpose)."""
     try:
-        return {"steps": service.get_resolution_steps(metric_name, severity)}
+        return {"steps": service.get_resolution_steps(metric_name, priority, purpose)}
     except GuidanceNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

@@ -1,15 +1,16 @@
-from sqlalchemy import Column, String, Integer, Float, TIMESTAMP, Text, ForeignKey, Index, JSON, text
+from sqlalchemy import Column, String, Integer, Float, TIMESTAMP, Text, ForeignKey, Index, text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from server_db.connection import Base
 from server_db.const import DEFAULT_TEMPLATE
+import json
 
 class Purpose(Base):
     __tablename__ = 'purposes'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     purpose = Column(String, unique=True, nullable=False, default='general', server_default=text("'general'"))
-    template = Column(JSON, default=dict, server_default=text(DEFAULT_TEMPLATE))
+    template = Column(Text, default=DEFAULT_TEMPLATE, server_default=text(f"'{DEFAULT_TEMPLATE}'"))
     created_at = Column(TIMESTAMP, default=datetime.now, server_default=text('CURRENT_TIMESTAMP'))
 
     agents = relationship("Agent", back_populates="purpose")

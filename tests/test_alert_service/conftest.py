@@ -93,6 +93,7 @@ def make_ticket(
     agent_id:          str      = "agent_A",
     metric_name:       str      = "cpu_usage",
     severity:          str      = "P2",
+    purpose:           str      = "general",
     status:            str      = "OPEN",
     occurrence_count:  int      = 1,
     detectors:         list     = None,
@@ -119,6 +120,7 @@ def make_ticket(
         occurrence_count  = occurrence_count,
         first_occurred_at = first_occurred_at or now,
         last_occurred_at  = last_occurred_at  or now,
+        purpose           = purpose,
         created_at        = now,
     )
     db.add(t)
@@ -132,6 +134,7 @@ def make_alert(
     db,
     metric_name:      str      = "cpu_usage",
     severity:         str      = "P2",
+    purpose:          str      = "general",
     type:             str      = "SINGLE",
     status:           str      = "OPEN",
     agent_ids:        list     = None,
@@ -145,6 +148,7 @@ def make_alert(
     a = Alert(
         metric_name      = metric_name,
         severity         = severity,
+        purpose          = purpose,
         type             = type,
         status           = status,
         agent_ids        = json.dumps(agent_ids or ["agent_A"]),

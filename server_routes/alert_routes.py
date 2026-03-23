@@ -15,6 +15,7 @@ class AlertResponse(BaseModel):
     id: int
     metric_name: str
     severity: str
+    purpose: str
     type: str
     status: str
     agent_ids: str
@@ -39,6 +40,7 @@ class ResolveAlertResponse(BaseModel):
 def list_alerts(
     status: Optional[str] = Query(None, description="Filter by status (OPEN, CLOSED)"),
     severity: Optional[str] = Query(None, description="Filter by severity (e.g., P1, P2)"),
+    purpose: Optional[str] = Query(None, description="Filter by purpose"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
@@ -52,6 +54,8 @@ def list_alerts(
         query = query.filter(Alert.status == status.upper())
     if severity is not None:
         query = query.filter(Alert.severity == severity.upper())
+    if purpose is not None:
+        query = query.filter(Alert.purpose == purpose)
 
     total = query.count()
     items = query.order_by(Alert.last_seen_at.desc()).offset(skip).limit(limit).all()

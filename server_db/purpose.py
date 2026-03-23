@@ -30,7 +30,9 @@ def create_purpose(purpose: str = "general", template: Optional[TemplateType] = 
         if existing:
             return existing
 
-        purpose_row = Purpose(purpose=purpose, template=_normalize_template(template))
+        normalized = _normalize_template(template)
+        template_str = json.dumps(normalized) if not isinstance(normalized, str) else normalized
+        purpose_row = Purpose(purpose=purpose, template=template_str)
         session.add(purpose_row)
         session.commit()
         session.refresh(purpose_row)
@@ -60,7 +62,8 @@ def update_purpose_template(purpose_id: int, template: TemplateType, db: Optiona
         if not purpose_row:
             return None
 
-        purpose_row.template = _normalize_template(template)
+        normalized = _normalize_template(template)
+        purpose_row.template = json.dumps(normalized) if not isinstance(normalized, str) else normalized
         session.commit()
         session.refresh(purpose_row)
         return purpose_row

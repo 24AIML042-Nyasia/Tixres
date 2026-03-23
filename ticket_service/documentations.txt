@@ -4,10 +4,10 @@ Files and their contents:
 
 1. models.py
 Classes:
-- Ticket: SQLAlchemy domain class mapping the `tickets` relational table. Stores agent specific anomaly events including metric origin, severity, current status ('OPEN'), detector metadata, and a qualitative summary message.
+- Ticket: SQLAlchemy domain class mapping the `tickets` relational table. Stores agent specific anomaly events including metric origin, severity, purpose, current status ('OPEN'), detector metadata, and a qualitative summary message.
 
 2. ticketService.py
 Classes & Functions:
 - TicketService: Database service provider for orchestrating queries around `Ticket`.
-  - create_ticket(agent_id, metric_name, severity, detector, meta, message): Writes an anomaly ticket into the database to notify administrators.
+  - create_ticket(agent_id, metric_name, severity, purpose, detector, meta, message): Writes an anomaly ticket into the database to notify administrators with purpose-aware deduplication.
   - get_Tickets(limit): Retrieves recent tickets from the database up to a specified limit.

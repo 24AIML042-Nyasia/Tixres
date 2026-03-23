@@ -7,6 +7,7 @@ through CLOSED, accumulates agent IDs, and controls notification cooldowns.
 """
 
 from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, text
+from sqlalchemy import UniqueConstraint
 from datetime import datetime
 from server_db.connection import Base
 
@@ -19,6 +20,7 @@ class Alert(Base):
     # --- Identity key: (metric_name, severity) ---
     metric_name = Column(String, nullable=False, index=True)
     severity    = Column(String, nullable=False, index=True)
+    purpose     = Column(String, nullable=False, default="general", server_default=text("'general'"), index=True)
 
     # --- Classification ---
     # "SINGLE"  → only one agent has fired this alert
@@ -45,3 +47,7 @@ class Alert(Base):
         server_default=text("CURRENT_TIMESTAMP"),
     )
     closed_at = Column(TIMESTAMP, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("metric_name", "severity", "purpose", "status", name="uq_alert_metric_severity_purpose_status"),
+    )

@@ -18,6 +18,7 @@ def base_ticket():
     t.agent_id = "agent_001"
     t.metric_name = "cpu_usage"
     t.severity = "HIGH"
+    t.purpose = "general"
     t.status = "OPEN"
     t.detectors = json.dumps(["detector_a"])
     t.occurrence_count = 1
@@ -31,6 +32,7 @@ TICKET_DEFAULTS = dict(
     agent_id="agent_001",
     metric_name="cpu_usage",
     severity="HIGH",
+    purpose="general",
     detector="detector_a",
     meta="{}",
     message="CPU usage high",
@@ -63,6 +65,7 @@ class TestCreateTicketNew:
         assert ticket.agent_id == "agent_001"
         assert ticket.metric_name == "cpu_usage"
         assert ticket.severity == "HIGH"
+        assert ticket.purpose == "general"
         assert ticket.status == "OPEN"
         assert ticket.message == "CPU usage high"
 
@@ -163,7 +166,7 @@ class TestDeduplication:
         assert TicketService.DEDUP_WINDOW_MINUTES == 60
 
     def test_dedup_fields_constant(self):
-        assert set(TicketService.DEDUP_FIELDS) == {"agent_id", "metric_name", "severity"}
+        assert set(TicketService.DEDUP_FIELDS) == {"agent_id", "metric_name", "severity", "purpose"}
 
     def test_different_severity_no_merge(self, db):
         make_query_mock(db, None)

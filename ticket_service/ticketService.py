@@ -5,7 +5,7 @@ Handles creation, deduplication, and retrieval of Tickets.
 
 Deduplication strategy
 -----------------------
-A duplicate is an OPEN ticket for the same (agent_id, metric_name, severity)
+A duplicate is an OPEN ticket for the same (agent_id, metric_name, severity, purpose)
 within the configured time window.  When a duplicate is found the incoming
 event is *merged* rather than creating a new row:
 
@@ -34,6 +34,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
+from server_db.models import Agent, Purpose
 from ticket_service.models import Ticket
 
 
@@ -50,11 +51,31 @@ class TicketService:
 
     # Fields that must match for two events to be considered duplicates.
     # Note: `detector` is deliberately absent — see module docstring.
-    DEDUP_FIELDS = ["agent_id", "metric_name", "severity"]
+    DEDUP_FIELDS = ["agent_id", "metric_name", "severity", "purpose"]
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_purpose(db: Session, agent_id: str, explicit: str | None) -> str:
+        """
+        Prefer an explicit purpose when provided; otherwise fall back to the
+        agent's recorded purpose, defaulting to 'general' when unavailable.
+        """
+        if explicit:
+            return explicit
+        try:
+            agent = db.query(Agent).filter(Agent.agent_id == agent_id).first()
+            if agent:
+                purpose_obj = getattr(agent, "purpose", None)
+                if isinstance(purpose_obj, Purpose) and getattr(purpose_obj, "purpose", None):
+                    return purpose_obj.purpose  # type: ignore[return-value]
+                if isinstance(purpose_obj, str):
+                    return purpose_obj
+        except Exception:
+            return "general"
+        return "general"
 
     @staticmethod
     def _find_duplicate(
@@ -62,6 +83,7 @@ class TicketService:
         agent_id: str,
         metric_name: str,
         severity: str,
+        purpose: str,
         window_minutes: int | None = None,
     ) -> Ticket | None:
         """
@@ -101,6 +123,7 @@ class TicketService:
                     Ticket.agent_id    == agent_id,
                     Ticket.metric_name == metric_name,
                     Ticket.severity    == severity,
+                    Ticket.purpose     == purpose,
                     Ticket.status      == "OPEN",
                     Ticket.first_occurred_at >= cutoff,
                 )
@@ -152,6 +175,7 @@ class TicketService:
         message: str,
         dedup: bool = True,
         dedup_window_minutes: int | None = None,
+        purpose: str | None = None,
     ) -> dict:
         """
         Create a new ticket or merge into an existing one if a duplicate is found.
@@ -191,12 +215,13 @@ class TicketService:
               - is_p4 (bool)           : True when severity is P4.
         """
         try:
+            purpose_value = TicketService._resolve_purpose(db, agent_id, purpose)
             # P4: always insert; never deduplicate
             effective_dedup = dedup and (severity != _P4_SEVERITY)
 
             if effective_dedup:
                 existing = TicketService._find_duplicate(
-                    db, agent_id, metric_name, severity, dedup_window_minutes
+                    db, agent_id, metric_name, severity, purpose_value, dedup_window_minutes
                 )
                 if existing:
                     TicketService._merge_into(existing, detector, message)
@@ -214,6 +239,7 @@ class TicketService:
                 agent_id          = agent_id,
                 metric_name       = metric_name,
                 severity          = severity,
+                purpose           = purpose_value,
                 status            = "OPEN",
                 detectors         = json.dumps([detector]),
                 meta              = meta,
@@ -258,10 +284,11 @@ class TicketService:
             List of ticket dicts. `detectors` is returned as a Python list.
         """
         try:
-            query = db.query(Ticket).filter(Ticket.agent_id == agent_id)
-
+            conditions = [Ticket.agent_id == agent_id]
             if not include_p4:
-                query = query.filter(Ticket.severity != _P4_SEVERITY)
+                conditions.append(Ticket.severity != _P4_SEVERITY)
+
+            query = db.query(Ticket).filter(*conditions)
 
             tickets = (
                 query
@@ -276,6 +303,7 @@ class TicketService:
                     "agent_id"        : t.agent_id,
                     "metric_name"     : t.metric_name,
                     "severity"        : t.severity,
+                    "purpose"         : t.purpose,
                     "status"          : t.status,
                     "detectors"       : json.loads(t.detectors or "[]"),
                     "meta"            : t.meta,

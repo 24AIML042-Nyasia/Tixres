@@ -25,7 +25,6 @@ class TestServiceUpsert:
         assert created is True
         assert response.id is not None
         assert response.metric_name == "cpu_usage"
-        assert response.severity == "high"
         assert response.priority == Priority.P2
 
     def test_returns_guidance_response_schema(self, service: GuidanceService):
@@ -48,9 +47,9 @@ class TestServiceUpsert:
         r2, _ = service.upsert(make_upsert(resolver_notes="Updated"))
         assert r1.id == r2.id
 
-    def test_different_severities_are_independent_records(self, service: GuidanceService):
-        _, c1 = service.upsert(make_upsert(severity="high"))
-        _, c2 = service.upsert(make_upsert(severity="critical"))
+    def test_different_priorities_are_independent_records(self, service: GuidanceService):
+        _, c1 = service.upsert(make_upsert(priority=Priority.P1))
+        _, c2 = service.upsert(make_upsert(priority=Priority.P2))
         assert c1 is True
         assert c2 is True
 
@@ -87,19 +86,19 @@ class TestServiceGetById:
 class TestServiceGetByNaturalKey:
 
     def test_returns_correct_record(self, service: GuidanceService):
-        service.upsert(make_upsert(metric_name="latency", severity="critical"))
-        record = service.get_by_natural_key("latency", "critical")
+        service.upsert(make_upsert(metric_name="latency", priority=Priority.P1))
+        record = service.get_by_natural_key("latency", Priority.P1)
         assert record.metric_name == "latency"
-        assert record.severity == "critical"
+        assert record.priority == Priority.P1
 
     def test_raises_not_found_for_missing_key(self, service: GuidanceService):
         with pytest.raises(GuidanceNotFoundError):
-            service.get_by_natural_key("ghost", "low")
+            service.get_by_natural_key("ghost", Priority.P3)
 
-    def test_wrong_severity_raises_not_found(self, service: GuidanceService):
-        service.upsert(make_upsert(metric_name="cpu_usage", severity="high"))
+    def test_wrong_priority_raises_not_found(self, service: GuidanceService):
+        service.upsert(make_upsert(metric_name="cpu_usage", priority=Priority.P2))
         with pytest.raises(GuidanceNotFoundError):
-            service.get_by_natural_key("cpu_usage", "low")
+            service.get_by_natural_key("cpu_usage", Priority.P1)
 
 
 # =========================================================================== #
@@ -109,10 +108,10 @@ class TestServiceGetByNaturalKey:
 class TestServiceList:
 
     def _seed(self, service: GuidanceService):
-        service.upsert(make_upsert("cpu_usage", "high", Priority.P1))
-        service.upsert(make_upsert("cpu_usage", "critical", Priority.P1))
-        service.upsert(make_upsert("memory_usage", "high", Priority.P2))
-        service.upsert(make_upsert("disk_io", "low", Priority.P4))
+        service.upsert(make_upsert("cpu_usage", priority=Priority.P1))
+        service.upsert(make_upsert("cpu_usage_heavy", priority=Priority.P1))
+        service.upsert(make_upsert("memory_usage", priority=Priority.P2))
+        service.upsert(make_upsert("disk_io", priority=Priority.P4, purpose="ops"))
 
     def test_returns_all_records(self, service: GuidanceService):
         self._seed(service)
@@ -131,10 +130,10 @@ class TestServiceList:
         result = service.list(metric_name="cpu")
         assert result.total == 2
 
-    def test_filter_by_severity(self, service: GuidanceService):
+    def test_filter_by_purpose(self, service: GuidanceService):
         self._seed(service)
-        result = service.list(severity="high")
-        assert result.total == 2
+        result = service.list(purpose="ops")
+        assert result.total == 1
 
     def test_pagination(self, service: GuidanceService):
         self._seed(service)
@@ -190,7 +189,6 @@ class TestServiceUpdateById:
         r, _ = service.upsert(make_upsert())
         updated = service.update_by_id(r.id, GuidanceUpdate(resolver_notes="x"))
         assert updated.metric_name == r.metric_name
-        assert updated.severity == r.severity
 
 
 # =========================================================================== #
@@ -200,15 +198,15 @@ class TestServiceUpdateById:
 class TestServiceUpdateByNaturalKey:
 
     def test_updates_via_natural_key(self, service: GuidanceService):
-        service.upsert(make_upsert(metric_name="latency", severity="high"))
+        service.upsert(make_upsert(metric_name="latency", priority=Priority.P2))
         updated = service.update_by_natural_key(
-            "latency", "high", GuidanceUpdate(resolver_notes="Via key")
+            "latency", Priority.P2, GuidanceUpdate(resolver_notes="Via key")
         )
         assert updated.resolver_notes == "Via key"
 
     def test_raises_not_found_for_missing_key(self, service: GuidanceService):
         with pytest.raises(GuidanceNotFoundError):
-            service.update_by_natural_key("ghost", "low", GuidanceUpdate(resolver_notes="x"))
+            service.update_by_natural_key("ghost", Priority.P1, GuidanceUpdate(resolver_notes="x"))
 
 
 # =========================================================================== #
@@ -247,19 +245,19 @@ class TestServiceDeleteById:
 class TestServiceDeleteByNaturalKey:
 
     def test_deletes_by_natural_key(self, service: GuidanceService):
-        service.upsert(make_upsert(metric_name="disk_io", severity="critical"))
-        result = service.delete_by_natural_key("disk_io", "critical")
-        assert result == {"deleted": True, "metric_name": "disk_io", "severity": "critical"}
+        service.upsert(make_upsert(metric_name="disk_io", priority=Priority.P1))
+        result = service.delete_by_natural_key("disk_io", Priority.P1)
+        assert result == {"deleted": True, "metric_name": "disk_io", "priority": Priority.P1, "purpose": "general"}
 
     def test_record_gone_after_delete(self, service: GuidanceService):
-        service.upsert(make_upsert(metric_name="disk_io", severity="critical"))
-        service.delete_by_natural_key("disk_io", "critical")
+        service.upsert(make_upsert(metric_name="disk_io", priority=Priority.P1))
+        service.delete_by_natural_key("disk_io", Priority.P1)
         with pytest.raises(GuidanceNotFoundError):
-            service.get_by_natural_key("disk_io", "critical")
+            service.get_by_natural_key("disk_io", Priority.P1)
 
     def test_raises_not_found_for_missing_key(self, service: GuidanceService):
         with pytest.raises(GuidanceNotFoundError):
-            service.delete_by_natural_key("ghost_metric", "low")
+            service.delete_by_natural_key("ghost_metric", Priority.P3)
 
 
 # =========================================================================== #
@@ -271,17 +269,17 @@ class TestServiceGetResolutionSteps:
     def test_returns_steps_list(self, service: GuidanceService):
         steps = [{"step": 1, "action": "Restart"}, {"step": 2, "action": "Monitor"}]
         service.upsert(make_upsert(resolution_steps=steps))
-        result = service.get_resolution_steps("cpu_usage", "high")
+        result = service.get_resolution_steps("cpu_usage", Priority.P2)
         assert result == steps
 
     def test_returns_empty_list_when_steps_none(self, service: GuidanceService):
         service.upsert(make_upsert(resolution_steps=[]))
-        result = service.get_resolution_steps("cpu_usage", "high")
+        result = service.get_resolution_steps("cpu_usage", Priority.P2)
         assert result == []
 
     def test_raises_not_found_for_missing_key(self, service: GuidanceService):
         with pytest.raises(GuidanceNotFoundError):
-            service.get_resolution_steps("nonexistent", "high")
+            service.get_resolution_steps("nonexistent", Priority.P1)
 
 
 # =========================================================================== #
@@ -299,10 +297,10 @@ class TestServiceSummarizeByPriority:
         assert all(v == 0 for v in result.values())
 
     def test_counts_correct_after_inserts(self, service: GuidanceService):
-        service.upsert(make_upsert("cpu_usage", "high", Priority.P1))
-        service.upsert(make_upsert("cpu_usage", "critical", Priority.P1))
-        service.upsert(make_upsert("memory_usage", "high", Priority.P2))
-        service.upsert(make_upsert("disk_io", "low", Priority.P4))
+        service.upsert(make_upsert("cpu_usage", priority=Priority.P1))
+        service.upsert(make_upsert("cpu_usage_heavy", priority=Priority.P1))
+        service.upsert(make_upsert("memory_usage", priority=Priority.P2))
+        service.upsert(make_upsert("disk_io", priority=Priority.P4))
 
         result = service.summarize_by_priority()
         assert result["P1"] == 2
@@ -312,7 +310,7 @@ class TestServiceSummarizeByPriority:
 
     def test_count_reflects_delete(self, service: GuidanceService):
         r, _ = service.upsert(make_upsert(priority=Priority.P1))
-        service.upsert(make_upsert("memory_usage", "high", Priority.P1))
+        service.upsert(make_upsert("memory_usage", priority=Priority.P1))
 
         service.delete_by_id(r.id)
         result = service.summarize_by_priority()

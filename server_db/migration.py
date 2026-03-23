@@ -4,6 +4,8 @@ from server_db.models import (
     
 from anomaly.models import AnomalyState
 from ticket_service.models import Ticket
+from alert_service.models import Alert
+from guidance.models import Guidance
 from metric_rollup.models import RollupState
 
 from server_utils.logger import get_logger

@@ -1,14 +1,13 @@
 """
 guidance/crud.py
-────────────────
+----------------
 Low-level database operations for the Guidance model.
-The (metric_name, severity) pair is the natural key — there is exactly one
+The (metric_name, priority, purpose) tuple is the natural key — there is exactly one
 record per combination. All writes go through upsert_guidance.
 """
 
 from typing import Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
 
 from guidance.models import Guidance, Priority
 from guidance.schemas import GuidanceUpsert, GuidanceUpdate
@@ -18,12 +17,17 @@ from guidance.schemas import GuidanceUpsert, GuidanceUpdate
 #  Internal helpers                                                            #
 # --------------------------------------------------------------------------- #
 
-def _get_by_natural_key(db: Session, metric_name: str, severity: str) -> Optional[Guidance]:
-    stmt = select(Guidance).where(
-        Guidance.metric_name == metric_name,
-        Guidance.severity == severity,
+def _get_by_natural_key(db: Session, metric_name: str, priority: Priority, purpose: str) -> Optional[Guidance]:
+    priority_value = priority.value if isinstance(priority, Priority) else priority
+    return (
+        db.query(Guidance)
+        .filter(
+            Guidance.metric_name == metric_name,
+            Guidance.priority == priority_value,
+            Guidance.purpose == purpose,
+        )
+        .first()
     )
-    return db.scalars(stmt).first()
 
 
 # --------------------------------------------------------------------------- #
@@ -32,17 +36,17 @@ def _get_by_natural_key(db: Session, metric_name: str, severity: str) -> Optiona
 
 def upsert_guidance(db: Session, payload: GuidanceUpsert) -> tuple[Guidance, bool]:
     """
-    Insert a new record if (metric_name, severity) does not exist,
+    Insert a new record if (metric_name, priority, purpose) does not exist,
     otherwise update the mutable fields.
 
     Returns (record, created) where `created` is True on insert, False on update.
     """
-    record = _get_by_natural_key(db, payload.metric_name, payload.severity)
+    record = _get_by_natural_key(db, payload.metric_name, payload.priority, payload.purpose)
 
     if record is None:
         record = Guidance(
             metric_name=payload.metric_name,
-            severity=payload.severity,
+            purpose=payload.purpose,
             priority=payload.priority,
             resolution_steps=payload.resolution_steps,
             resolver_notes=payload.resolver_notes,
@@ -71,9 +75,9 @@ def get_guidance_by_id(db: Session, guidance_id: int) -> Optional[Guidance]:
 
 
 def get_guidance_by_natural_key(
-    db: Session, metric_name: str, severity: str
+    db: Session, metric_name: str, priority: Priority, purpose: str = "general"
 ) -> Optional[Guidance]:
-    return _get_by_natural_key(db, metric_name, severity)
+    return _get_by_natural_key(db, metric_name, priority, purpose)
 
 
 def get_all_guidance(
@@ -83,24 +87,28 @@ def get_all_guidance(
     limit: int = 20,
     priority: Optional[Priority] = None,
     metric_name: Optional[str] = None,
-    severity: Optional[str] = None,
+    purpose: Optional[str] = None,
 ) -> tuple[int, list[Guidance]]:
     """Return (total_count, page). Supports optional filters."""
-    query = select(Guidance)
+    query = db.query(Guidance)
 
     if priority:
-        query = query.where(Guidance.priority == priority)
+        priority_value = priority.value if isinstance(priority, Priority) else priority
+        query = query.filter(Guidance.priority == priority_value)
     if metric_name:
-        query = query.where(Guidance.metric_name.ilike(f"%{metric_name}%"))
-    if severity:
-        query = query.where(Guidance.severity.ilike(f"%{severity}%"))
+        query = query.filter(Guidance.metric_name.ilike(f"%{metric_name}%"))
+    if purpose:
+        query = query.filter(Guidance.purpose == purpose)
 
-    total: int = db.scalar(select(func.count()).select_from(query.subquery()))  # type: ignore[arg-type]
-    records = db.scalars(
-        query.order_by(Guidance.last_updated.desc()).offset(skip).limit(limit)
-    ).all()
+    total: int = query.count()
+    records = (
+        query.order_by(Guidance.last_updated.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
-    return total, list(records)
+    return total, records
 
 
 # --------------------------------------------------------------------------- #
@@ -142,9 +150,9 @@ def delete_guidance_by_id(db: Session, guidance_id: int) -> bool:
 
 
 def delete_guidance_by_natural_key(
-    db: Session, metric_name: str, severity: str
+    db: Session, metric_name: str, priority: Priority, purpose: str = "general"
 ) -> bool:
-    record = _get_by_natural_key(db, metric_name, severity)
+    record = _get_by_natural_key(db, metric_name, priority, purpose)
     if record is None:
         return False
     db.delete(record)

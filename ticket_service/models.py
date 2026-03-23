@@ -9,6 +9,7 @@ class Ticket(Base):
     agent_id = Column(String, nullable=False)
     metric_name = Column(String, nullable=False)
     severity = Column(String, nullable=False)
+    purpose = Column(String, nullable=False, default='general', server_default=text("'general'"))
     status = Column(String, default='OPEN')
     detectors = Column(Text)          # JSON array e.g. ["detector_a", "detector_b"]
     meta = Column(Text)

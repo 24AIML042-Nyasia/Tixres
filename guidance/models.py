@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Enum as SAEnum, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Enum as SAEnum, UniqueConstraint, text
 from server_db.connection import Base
 from sqlalchemy.sql import func
 import enum
@@ -17,7 +17,7 @@ class Guidance(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     metric_name = Column(String(255), nullable=False, index=True)
-    severity = Column(String(100), nullable=False)
+    purpose = Column(String(100), nullable=False, default="general", server_default=text("'general'"), index=True)
     priority = Column(SAEnum(Priority), nullable=False, default=Priority.P4)
     resolution_steps = Column(JSON, nullable=False, default=List)   # [{"step": 1, "action": "..."}]
     resolver_notes = Column(Text, nullable=True)
@@ -30,11 +30,11 @@ class Guidance(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("metric_name", "severity", name="uq_guidance_metric_severity"),
+        UniqueConstraint("metric_name", "priority", "purpose", name="uq_guidance_metric_priority_purpose"),
     )
 
     def __repr__(self):
         return (
             f"<Guidance id={self.id} metric='{self.metric_name}' "
-            f"severity='{self.severity}' priority='{self.priority}'>"
+            f"priority='{self.priority}' purpose='{self.purpose}'>"
         )

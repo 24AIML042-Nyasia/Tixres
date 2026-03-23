@@ -26,6 +26,7 @@ import json
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from alert_service.models import Alert
 from ticket_service.models import Ticket
@@ -96,7 +97,7 @@ def is_resolved(alert: Alert) -> bool:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _find_active_alert(db: Session, metric_name: str, severity: str) -> Alert | None:
+def _find_active_alert(db: Session, metric_name: str, severity: str, purpose: str) -> Alert | None:
     """
     Return the single OPEN alert for (metric_name, severity), or None.
 
@@ -114,6 +115,7 @@ def _find_active_alert(db: Session, metric_name: str, severity: str) -> Alert | 
         .filter(
             Alert.metric_name == metric_name,
             Alert.severity    == severity,
+            Alert.purpose     == purpose,
             Alert.status      == "OPEN",
         )
         .with_for_update()
@@ -130,6 +132,7 @@ def _create_single_alert(db: Session, ticket: Ticket) -> Alert:
     alert = Alert(
         metric_name      = ticket.metric_name,
         severity         = ticket.severity,
+        purpose          = getattr(ticket, "purpose", "general") or "general",
         type             = "SINGLE",
         status           = "OPEN",
         agent_ids        = json.dumps([ticket.agent_id]),
@@ -205,9 +208,19 @@ def process_ticket(db: Session, ticket: Ticket) -> Alert | None:
     if ticket.severity in _IGNORED_SEVERITIES:
         return None  # P4: persisted in DB, silent in alerting
 
-    alert = _find_active_alert(db, ticket.metric_name, ticket.severity)
+    purpose = getattr(ticket, "purpose", "general") or "general"
+    alert = _find_active_alert(db, ticket.metric_name, ticket.severity, purpose)
 
     if alert is None:
-        return _create_single_alert(db, ticket)
+        try:
+            return _create_single_alert(db, ticket)
+        except IntegrityError:
+            # Another concurrent writer likely inserted the alert first.
+            db.rollback()
+            alert = _find_active_alert(db, ticket.metric_name, ticket.severity, purpose)
+            if alert:
+                return _update_alert(db, alert, ticket)
+            else:
+                return None
     else:
         return _update_alert(db, alert, ticket)

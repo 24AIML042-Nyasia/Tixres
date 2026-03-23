@@ -27,7 +27,6 @@ class TestUpsertGuidance:
         assert created is True
         assert record.id is not None
         assert record.metric_name == "cpu_usage"
-        assert record.severity == "high"
         assert record.priority == Priority.P2
 
     def test_insert_returns_persisted_data(self, db: Session):
@@ -66,9 +65,9 @@ class TestUpsertGuidance:
 
         assert record.priority == Priority.P1
 
-    def test_different_severity_same_metric_creates_separate_records(self, db: Session):
-        _, c1 = crud.upsert_guidance(db, make_upsert(severity="high"))
-        _, c2 = crud.upsert_guidance(db, make_upsert(severity="critical"))
+    def test_different_priority_same_metric_creates_separate_records(self, db: Session):
+        _, c1 = crud.upsert_guidance(db, make_upsert(priority=Priority.P1))
+        _, c2 = crud.upsert_guidance(db, make_upsert(priority=Priority.P2))
 
         assert c1 is True
         assert c2 is True
@@ -76,9 +75,9 @@ class TestUpsertGuidance:
         total, records = crud.get_all_guidance(db)
         assert total == 2
 
-    def test_different_metric_same_severity_creates_separate_records(self, db: Session):
-        crud.upsert_guidance(db, make_upsert(metric_name="cpu_usage"))
-        crud.upsert_guidance(db, make_upsert(metric_name="memory_usage"))
+    def test_different_metric_same_priority_creates_separate_records(self, db: Session):
+        crud.upsert_guidance(db, make_upsert(metric_name="cpu_usage", priority=Priority.P2))
+        crud.upsert_guidance(db, make_upsert(metric_name="memory_usage", priority=Priority.P2))
 
         total, _ = crud.get_all_guidance(db)
         assert total == 2
@@ -113,20 +112,20 @@ class TestGetGuidanceById:
 class TestGetGuidanceByNaturalKey:
 
     def test_returns_correct_record(self, db: Session):
-        crud.upsert_guidance(db, make_upsert(metric_name="disk_io", severity="critical"))
-        record = crud.get_guidance_by_natural_key(db, "disk_io", "critical")
+        crud.upsert_guidance(db, make_upsert(metric_name="disk_io", priority=Priority.P1))
+        record = crud.get_guidance_by_natural_key(db, "disk_io", Priority.P1)
 
         assert record is not None
         assert record.metric_name == "disk_io"
-        assert record.severity == "critical"
+        assert record.priority == Priority.P1
 
     def test_returns_none_when_not_found(self, db: Session):
-        result = crud.get_guidance_by_natural_key(db, "nonexistent", "high")
+        result = crud.get_guidance_by_natural_key(db, "nonexistent", Priority.P1)
         assert result is None
 
     def test_lookup_is_exact_match(self, db: Session):
-        crud.upsert_guidance(db, make_upsert(metric_name="cpu_usage", severity="high"))
-        result = crud.get_guidance_by_natural_key(db, "cpu_usage", "critical")
+        crud.upsert_guidance(db, make_upsert(metric_name="cpu_usage", priority=Priority.P1))
+        result = crud.get_guidance_by_natural_key(db, "cpu_usage", Priority.P2)
         assert result is None
 
 
@@ -137,10 +136,10 @@ class TestGetGuidanceByNaturalKey:
 class TestGetAllGuidance:
 
     def _seed(self, db: Session):
-        crud.upsert_guidance(db, make_upsert("cpu_usage", "high", Priority.P1))
-        crud.upsert_guidance(db, make_upsert("cpu_usage", "critical", Priority.P1))
-        crud.upsert_guidance(db, make_upsert("memory_usage", "high", Priority.P2))
-        crud.upsert_guidance(db, make_upsert("disk_io", "low", Priority.P4))
+        crud.upsert_guidance(db, make_upsert("cpu_usage", priority=Priority.P1))
+        crud.upsert_guidance(db, make_upsert("cpu_usage_heavy", priority=Priority.P1))
+        crud.upsert_guidance(db, make_upsert("memory_usage", priority=Priority.P2))
+        crud.upsert_guidance(db, make_upsert("disk_io", priority=Priority.P4, purpose="ops"))
 
     def test_returns_all_records(self, db: Session):
         self._seed(db)
@@ -160,10 +159,11 @@ class TestGetAllGuidance:
         assert total == 2
         assert all("cpu" in r.metric_name for r in records)
 
-    def test_filter_by_severity_partial(self, db: Session):
+    def test_filter_by_purpose(self, db: Session):
         self._seed(db)
-        total, records = crud.get_all_guidance(db, severity="high")
-        assert total == 2
+        total, records = crud.get_all_guidance(db, purpose="ops")
+        assert total == 1
+        assert all(r.purpose == "ops" for r in records)
 
     def test_combined_filters(self, db: Session):
         self._seed(db)
@@ -244,7 +244,6 @@ class TestUpdateGuidanceById:
             db, record.id, GuidanceUpdate(resolver_notes="Changed")
         )
         assert updated.metric_name == record.metric_name
-        assert updated.severity == record.severity
 
 
 # =========================================================================== #
@@ -279,11 +278,11 @@ class TestDeleteGuidanceById:
 class TestDeleteGuidanceByNaturalKey:
 
     def test_deletes_by_natural_key(self, db: Session):
-        crud.upsert_guidance(db, make_upsert(metric_name="disk_io", severity="high"))
-        result = crud.delete_guidance_by_natural_key(db, "disk_io", "high")
+        crud.upsert_guidance(db, make_upsert(metric_name="disk_io", priority=Priority.P2))
+        result = crud.delete_guidance_by_natural_key(db, "disk_io", Priority.P2)
 
         assert result is True
-        assert crud.get_guidance_by_natural_key(db, "disk_io", "high") is None
+        assert crud.get_guidance_by_natural_key(db, "disk_io", Priority.P2) is None
 
     def test_returns_false_for_missing_key(self, db: Session):
-        assert crud.delete_guidance_by_natural_key(db, "ghost_metric", "low") is False
+        assert crud.delete_guidance_by_natural_key(db, "ghost_metric", Priority.P3) is False

@@ -63,7 +63,7 @@ def service(db: Session) -> GuidanceService:
 
 def make_upsert(
     metric_name: str = "cpu_usage",
-    severity: str = "high",
+    purpose: str = "general",
     priority: Priority = Priority.P2,
     resolution_steps: list | None = None,
     resolver_notes: str | None = "Check top/htop",
@@ -71,7 +71,7 @@ def make_upsert(
 ) -> GuidanceUpsert:
     return GuidanceUpsert(
         metric_name=metric_name,
-        severity=severity,
+        purpose=purpose,
         priority=priority,
         resolution_steps=resolution_steps if resolution_steps is not None else [{"step": 1, "action": "Restart service"}],
         resolver_notes=resolver_notes,
