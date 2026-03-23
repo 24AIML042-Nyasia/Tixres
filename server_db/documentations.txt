@@ -12,6 +12,7 @@ Classes & Functions:
 Classes:
 - AgentCredentials: SQLAlchemy mapping for tracking authentication API and Secret keys.
 - Agent: SQLAlchemy mapping representing connected agents (OS, version, heartbeat).
+- Purpose: SQLAlchemy mapping describing an agent purpose with optional JSON template; linked to agents via `purpose_id`.
 - MetricNumeric: SQLAlchemy mapping for storing incoming raw numeric metrics for fast ingestion, linked via ForeignKey to `agents.agent_id`.
 - MetricJson: SQLAlchemy mapping for storing structured or complex JSON metric bodies.
 
@@ -22,3 +23,10 @@ Functions:
 4. rollups.py
 Functions:
 - retention_policy(): Executes raw SQL queries cleaning up the default raw metrics from `metric_numeric` ensuring they don't surpass standard retention (7 days). Outward rollups limits are currently commented out.
+
+5. purpose.py
+Functions:
+- create_purpose(): Idempotently create or fetch a purpose row (defaults to "general").
+- read_purpose(): Read a purpose row by id.
+- update_purpose_template(): Update only the template field for a purpose row.
+- delete_purpose(): Delete a purpose row by id.

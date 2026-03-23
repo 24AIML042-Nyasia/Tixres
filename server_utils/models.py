@@ -7,12 +7,14 @@ class AgentRegisterRequest(BaseModel):
     os: str
     fingerprint: str
     template: Optional[Dict[str, Any]] = None
+    purpose: Optional[str] = "general"
 
 class AgentRegisterResponse(BaseModel):
     agent_id: str
     api_key: str
     secret_key: str
     template: str
+    purpose: str
     message: str
 
 class AgentLoginRequest(BaseModel):
@@ -44,3 +46,4 @@ class AgentInfo(BaseModel):
     heartbeat: Optional[str]
     fingerprint: str
     template: Optional[str]
+    purpose: Optional[str]

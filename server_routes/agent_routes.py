@@ -6,13 +6,13 @@ from datetime import datetime
 from server_auth.hmac import generate_credentials, verify_auth
 from server_db.connection import SessionLocal
 from server_db.models import AgentCredentials, Agent
+from server_db.purpose import create_purpose
 from server_utils.models import (
     AgentRegisterRequest, AgentRegisterResponse,
     AgentLoginRequest, AgentLoginResponse,
     PingRequest
 )
 from server_utils.logger import get_logger
-from agent_adapter.templates import get_template
 
 logger = get_logger()
 
@@ -25,6 +25,7 @@ async def register_agent(request: AgentRegisterRequest):
         
         db = SessionLocal()
         try:
+            purpose_row = create_purpose(request.purpose or "general", db=db)
             credentials = AgentCredentials(
                 agent_id=agent_id,
                 api_key=api_key,
@@ -32,14 +33,13 @@ async def register_agent(request: AgentRegisterRequest):
             )
             db.add(credentials)
             
-            template_json = get_template()
             agent = Agent(
                 agent_id=agent_id,
                 agent_version=request.agent_version,
                 hostname=request.hostname,
                 os=request.os,
                 fingerprint=request.fingerprint,
-                template=template_json,
+                purpose_id=purpose_row.id,
                 heartbeat=datetime.now()
             )
             db.add(agent)
@@ -52,7 +52,8 @@ async def register_agent(request: AgentRegisterRequest):
                 agent_id=agent_id,
                 api_key=api_key,
                 secret_key=secret_key,
-                template = template_json,
+                template = agent.effective_template,
+                purpose = purpose_row.purpose,
                 message="Agent registered successfully"
             )
         finally:
@@ -82,7 +83,8 @@ async def login_agent(request: AgentLoginRequest, agent_id: str = Depends(verify
                 "os": agent.os,
                 "created_at": str(agent.created_at),
                 "heartbeat": str(agent.heartbeat),
-                "template": agent.template
+                "template": agent.effective_template,
+                "purpose": agent.purpose.purpose if agent.purpose else None
             }
             
             logger.info(f"Agent logged in: {agent_id}")
@@ -114,7 +116,7 @@ async def ping_agent(request: PingRequest, agent_id: str = Depends(verify_auth))
             
             return {"message": "Heartbeat updated",
                     "timestamp": datetime.now().isoformat(),
-                    "template" : agent.template,
+                    "template" : agent.effective_template,
                     "action" : tempCache[agent_id]
                     }
         finally:

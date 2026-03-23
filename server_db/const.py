@@ -1,24 +1,6 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import update
-
 import json
 
-from server_db.models import Agent
-
-def set_template(db: Session, template: str, agent_id: str):
-    stmt = (
-        update(Agent)
-        .where(Agent.agent_id == agent_id)
-        .values(template=template)
-    )
-
-    db.execute(stmt)
-    db.commit()
-
-def get_template() -> str:
-    """"Get default template"""
-
-    return json.dumps(
+DEFAULT_TEMPLATE = json.dumps(
     {
     'modules': [
         'cpu_v1.0.0',

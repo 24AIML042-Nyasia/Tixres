@@ -1,6 +1,6 @@
 from server_db.connection import engine, Base
 from server_db.models import (
-    AgentCredentials, Agent, MetricNumeric, MetricJson)
+    AgentCredentials, Agent, Purpose, MetricNumeric, MetricJson)
     
 from anomaly.models import AnomalyState
 from ticket_service.models import Ticket
