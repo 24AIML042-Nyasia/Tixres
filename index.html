@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PC Monitoring Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <nav class="top-nav">
+        <div class="nav-content">
+            <h1 class="nav-title">PC Monitoring Dashboard</h1>
+            <div class="nav-info">
+                <span class="last-updated">Last updated: <span id="lastUpdated">--</span></span>
+                <span class="status-badge" id="systemStatus">Healthy</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Row 1: System Overview Cards -->
+        <section class="overview-grid">
+            <div class="metric-card">
+                <div class="card-header">
+                    <span class="card-label">CPU Usage</span>
+                    <span class="update-time" data-metric="cpu">--</span>
+                </div>
+                <div class="card-body">
+                    <canvas id="cpuRing" width="120" height="120"></canvas>
+                    <div class="metric-value">
+                        <span class="value" id="cpuValue">0</span>
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="card-header">
+                    <span class="card-label">Memory Usage</span>
+                    <span class="update-time" data-metric="memory">--</span>
+                </div>
+                <div class="card-body">
+                    <canvas id="memoryRing" width="120" height="120"></canvas>
+                    <div class="metric-value">
+                        <span class="value" id="memoryValue">0</span>
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="card-header">
+                    <span class="card-label">Disk Usage</span>
+                    <span class="update-time" data-metric="disk">--</span>
+                </div>
+                <div class="card-body">
+                    <canvas id="diskRing" width="120" height="120"></canvas>
+                    <div class="metric-value">
+                        <span class="value" id="diskValue">0</span>
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="card-header">
+                    <span class="card-label">Network</span>
+                    <span class="update-time" data-metric="network">--</span>
+                </div>
+                <div class="card-body network-card">
+                    <div class="network-value">
+                        <span class="value" id="networkValue">0.0</span>
+                        <span class="unit">Mbps</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Row 2: Detailed Monitoring Sections -->
+        <section class="details-grid">
+            <!-- CPU Panel -->
+            <div class="detail-panel">
+                <div class="panel-header">
+                    <h2>CPU Monitor</h2>
+                    <span class="interval-badge">Collection: 5s</span>
+                </div>
+                <div class="panel-body">
+                    <canvas id="cpuChart" width="400" height="150"></canvas>
+                    
+                    <div class="core-usage">
+                        <div class="core-bar" id="core0">
+                            <span class="core-label">Core 0</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: 0%"></div>
+                                <span class="bar-value">0%</span>
+                            </div>
+                        </div>
+                        <div class="core-bar" id="core1">
+                            <span class="core-label">Core 1</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: 0%"></div>
+                                <span class="bar-value">0%</span>
+                            </div>
+                        </div>
+                        <div class="core-bar" id="core2">
+                            <span class="core-label">Core 2</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: 0%"></div>
+                                <span class="bar-value">0%</span>
+                            </div>
+                        </div>
+                        <div class="core-bar" id="core3">
+                            <span class="core-label">Core 3</span>
+                            <div class="bar-container">
+                                <div class="bar-fill" style="width: 0%"></div>
+                                <span class="bar-value">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cpu-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Load Avg</span>
+                            <span class="stat-value" id="loadAvg">-- -- --</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Frequency</span>
+                            <span class="stat-value" id="cpuFreq">-- GHz</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Memory Panel -->
+            <div class="detail-panel">
+                <div class="panel-header">
+                    <h2>Memory</h2>
+                    <span class="interval-badge">Collection: 5-15s</span>
+                </div>
+                <div class="panel-body">
+                    <div class="memory-stack">
+                        <canvas id="memoryStack" width="400" height="60"></canvas>
+                        <div class="memory-legend">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #4ade80"></span>
+                                <span>Used: <strong id="memUsed">0</strong> MB</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #60a5fa"></span>
+                                <span>Cached: <strong id="memCached">0</strong> MB</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #374151"></span>
+                                <span>Free: <strong id="memFree">0</strong> MB</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="swap-usage">
+                        <span class="swap-label">Swap Usage</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="swapFill" style="width: 0%"></div>
+                        </div>
+                        <span class="swap-value" id="swapValue">0 / 0 MB</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disk Panel -->
+            <div class="detail-panel">
+                <div class="panel-header">
+                    <h2>Disk</h2>
+                    <span class="interval-badge">Collection: 60s</span>
+                </div>
+                <div class="panel-body">
+                    <div class="disk-usage-section">
+                        <div class="disk-info">
+                            <span>Total: <strong id="diskTotal">0</strong> GB</span>
+                            <span>Used: <strong id="diskUsed">0</strong> GB</span>
+                            <span>Free: <strong id="diskFree">0</strong> GB</span>
+                        </div>
+                        <div class="progress-bar large">
+                            <div class="progress-fill" id="diskFill" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="disk-io">
+                        <div class="io-item">
+                            <span class="io-icon">↓</span>
+                            <div>
+                                <span class="io-label">Read</span>
+                                <span class="io-value" id="diskRead">0.0 MB/s</span>
+                            </div>
+                        </div>
+                        <div class="io-item">
+                            <span class="io-icon">↑</span>
+                            <div>
+                                <span class="io-label">Write</span>
+                                <span class="io-value" id="diskWrite">0.0 MB/s</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Row 3: Advanced Sections -->
+        <section class="advanced-grid">
+            <!-- Process Monitoring -->
+            <div class="detail-panel">
+                <div class="panel-header">
+                    <h2>Process Monitoring</h2>
+                </div>
+                <div class="panel-body">
+                    <div class="process-card">
+                        <span class="process-label">Top CPU Process</span>
+                        <div class="process-info">
+                            <span class="process-name" id="topCpuName">--</span>
+                            <span class="process-usage" id="topCpuUsage">0%</span>
+                        </div>
+                    </div>
+
+                    <div class="process-card">
+                        <span class="process-label">Top Memory Process</span>
+                        <div class="process-info">
+                            <span class="process-name" id="topMemName">--</span>
+                            <span class="process-usage" id="topMemUsage">0 MB</span>
+                        </div>
+                    </div>
+
+                    <div class="process-stats">
+                        <div class="stat-box">
+                            <span class="stat-label">Total Threads</span>
+                            <span class="stat-number" id="totalThreads">0</span>
+                        </div>
+                        <div class="stat-box zombie-stat" id="zombieBox">
+                            <span class="stat-label">Zombie Count</span>
+                            <span class="stat-number" id="zombieCount">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Monitoring -->
+            <div class="detail-panel">
+                <div class="panel-header">
+                    <h2>Network</h2>
+                    <span class="interval-badge">Collection: 5-30s</span>
+                </div>
+                <div class="panel-body">
+                    <canvas id="networkChart" width="400" height="150"></canvas>
+
+                    <div class="network-stats">
+                        <div class="network-stat">
+                            <span class="net-label">Active Connections</span>
+                            <span class="net-value" id="activeConn">0</span>
+                        </div>
+                        <div class="network-stat error-stat" id="errorStat">
+                            <span class="net-label">Errors</span>
+                            <span class="net-value" id="errorCount">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Row 4: Tickets -->
+        <section class="tickets-section">
+            <div class="detail-panel">
+                <div class="panel-header">
+                    <h2>Latest Alerts &amp; Tickets</h2>
+                    <div class="tickets-header-right">
+                        <div class="ticket-filter-group">
+                            <button class="ticket-filter-btn active" data-filter="all">All</button>
+                            <button class="ticket-filter-btn" data-filter="open">Open</button>
+                            <button class="ticket-filter-btn" data-filter="resolved">Resolved</button>
+                        </div>
+                        <span class="ticket-count-badge" id="ticketOpenCount">0 open</span>
+                    </div>
+                </div>
+                <div class="panel-body tickets-body" id="ticketsContainer">
+                    <div class="tickets-empty" id="ticketsEmpty">
+                        <span class="tickets-empty-icon">✓</span>
+                        <span>No tickets found</span>
+                    </div>
+                    <div class="ticket-list" id="ticketList"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script type="module" src="script.js"></script>
+
+</body>
+</html>
