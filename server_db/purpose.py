@@ -5,6 +5,7 @@ from sqlalchemy import update
 
 from server_db.connection import SessionLocal
 from server_db.models import Purpose, Agent
+from server_db.const import DEFAULT_TEMPLATE
 
 TemplateType = Union[Dict[str, Any], Any]
 
@@ -30,7 +31,7 @@ def create_purpose(purpose: str = "general", template: Optional[TemplateType] = 
         if existing:
             return existing
 
-        normalized = _normalize_template(template)
+        normalized = _normalize_template(template if template is not None else DEFAULT_TEMPLATE)
         template_str = json.dumps(normalized) if not isinstance(normalized, str) else normalized
         purpose_row = Purpose(purpose=purpose, template=template_str)
         session.add(purpose_row)

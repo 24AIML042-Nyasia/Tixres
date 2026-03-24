@@ -156,7 +156,7 @@ def _verify_influx_rw(client: InfluxDBClient, agent_id: str):
 
 def test_one_min_rollup_writes_to_influx(pg_session, influx_client):
     agent_id = "agent_pg_influx_e2e"
-    metric_name = "cpu_v1.0.0_pct"
+    metric_name = "cpu_v1.0.0.pct"
 
     # Clean state: Postgres metrics, rollup cursor, and Influx measurement.
     pg_session.query(MetricNumeric).filter(MetricNumeric.agent_id == agent_id).delete()

@@ -23,3 +23,7 @@ celerybeat-schedule*
 influxdb-data/
 
 *.db
+
+.coverage
+docs/
+server_db/demo_seed.py

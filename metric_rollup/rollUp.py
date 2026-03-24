@@ -2,32 +2,33 @@ import re
 from datetime import datetime, timedelta, timezone
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
-from sqlalchemy import text
+from sqlalchemy import select, func
 from server_db.connection import SessionLocal
+from server_db.models import MetricNumeric
 from settings import METRIC_REGEX_PATTERN
 from metric_rollup.rollUpStateService import RollupStateService
 from server_utils.logger import get_logger
 from influx_db.connection import InfluxDBService
 from influx_db.const import (
-    MEASUREMENT_1M ,
-    MEASUREMENT_10M ,
-    MEASUREMENT_1H ,
+    MEASUREMENT_1M,
+    MEASUREMENT_10M,
+    MEASUREMENT_1H,
 
-    TAG_AGENT_ID ,
-    TAG_METRIC ,
+    TAG_AGENT_ID,
+    TAG_METRIC,
     TAG_VERSION,
-    TAG_UNIT ,
+    TAG_UNIT,
 
     FIELD_COUNT,
     FIELD_MIN,
     FIELD_MAX,
     FIELD_SUM,
-    FIELD_AVG ,
-    FIELD_BUCKET_START ,
+    FIELD_AVG,
+    FIELD_BUCKET_START,
 
     SOURCE_POSTGRES,
-    SOURCE_1M ,
-    SOURCE_10M 
+    SOURCE_1M,
+    SOURCE_10M
 )
 
 pattern = re.compile(METRIC_REGEX_PATTERN)
@@ -89,6 +90,41 @@ class InfluxDBRollup:
         if points:
             self.write_api.write(bucket=self.bucket, record=points, org=self.org)
 
+    def _normalize_last_bucket(self, last_bucket, dialect: str):
+        """
+        Convert the persisted cursor into a value that matches the DB column
+        type (naive datetime). This avoids sqlite/postgres complaining about
+        tz-aware comparisons against a TIMESTAMP column.
+        """
+        if last_bucket is None:
+            return None
+        if isinstance(last_bucket, str):
+            try:
+                last_bucket = datetime.fromisoformat(last_bucket)
+            except ValueError:
+                return last_bucket
+        if getattr(last_bucket, "tzinfo", None):
+            return last_bucket.replace(tzinfo=None)
+        return last_bucket
+
+    def _coerce_bucket_datetime(self, bucket_value):
+        """Return a timezone-aware datetime for bucket boundaries."""
+        if isinstance(bucket_value, datetime):
+            return bucket_value if bucket_value.tzinfo else bucket_value.replace(tzinfo=timezone.utc)
+        if isinstance(bucket_value, str):
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
+                try:
+                    parsed = datetime.strptime(bucket_value, fmt)
+                    return parsed.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    continue
+            try:
+                parsed = datetime.fromisoformat(bucket_value)
+                return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+            except ValueError:
+                return None
+        return None
+
     async def one_min_roll_up(self):
         db = SessionLocal()
         try:
@@ -99,39 +135,45 @@ class InfluxDBRollup:
             if last_bucket is None:
                 last_bucket = datetime.now(timezone.utc) - timedelta(hours=1)
 
-            result = db.execute(
-                text(
-                    """
-                SELECT
-                    agent_id,
-                    metric_name,
-                    date_trunc('minute', timestamp) AS bucket_start,
-                    COUNT(*) AS count,
-                    MIN(value) AS min,
-                    MAX(value) AS max,
-                    SUM(value) AS sum
-                FROM metric_numeric
-                WHERE timestamp > :last_bucket
-                GROUP BY agent_id, metric_name, bucket_start
-                ORDER BY bucket_start ASC
-            """
-                ),
-                {"last_bucket": last_bucket},
+            dialect = db.bind.dialect.name if db.bind else ""
+            normalized_last_bucket = self._normalize_last_bucket(last_bucket, dialect)
+
+            bucket_start_expr = (
+                func.strftime("%Y-%m-%d %H:%M:00", MetricNumeric.timestamp).label("bucket_start")
+                if dialect == "sqlite"
+                else func.date_trunc("minute", MetricNumeric.timestamp).label("bucket_start")
             )
 
-            rows = result.fetchall()
+            query = (
+                select(
+                    MetricNumeric.agent_id,
+                    MetricNumeric.metric_name,
+                    bucket_start_expr,
+                    func.count().label("count"),
+                    func.min(MetricNumeric.value).label("min"),
+                    func.max(MetricNumeric.value).label("max"),
+                    func.sum(MetricNumeric.value).label("sum"),
+                )
+                .where(MetricNumeric.timestamp > normalized_last_bucket)
+                .group_by(MetricNumeric.agent_id, MetricNumeric.metric_name, bucket_start_expr)
+                .order_by(bucket_start_expr.asc())
+            )
+
+            rows = db.execute(query).all()
             if not rows:
                 return
 
             points = []
-            max_bucket = last_bucket
+            max_bucket = self._coerce_bucket_datetime(last_bucket)
 
             for row in rows:
                 parsed = self._parse_metric_name(row.metric_name)
                 if not parsed:
                     continue
 
-                bucket_start = row.bucket_start.replace(tzinfo=timezone.utc)
+                bucket_start = self._coerce_bucket_datetime(row.bucket_start)
+                if bucket_start is None:
+                    continue
 
                 point = self._create_point(
                     MEASUREMENT_1M,
@@ -140,16 +182,16 @@ class InfluxDBRollup:
                     parsed["version"],
                     parsed["unit"],
                     bucket_start,
-                    row.count,
-                    row.min,
-                    row.max,
-                    row.sum,
+                    row._mapping["count"],
+                    row._mapping["min"],
+                    row._mapping["max"],
+                    row._mapping["sum"],
                 )
 
                 if point:
                     points.append(point)
 
-                if bucket_start > max_bucket:
+                if max_bucket is None or bucket_start > max_bucket:
                     max_bucket = bucket_start
 
             self._write_points(points)
