@@ -38,14 +38,18 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'auth_core',
     'agents',
     'tickets',
     'alerts',
-    'guidance'
+    'guidance',
+    'dev_auth',   # ⚠️  remove from INSTALLED_APPS in production
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # JWT auth — runs early so request.sso_user is available to all views
+    'auth_core.middleware.JWTAuthMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -120,3 +124,28 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+
+# ---------------------------------------------------------------------------
+# JWT / SSO Auth settings
+# ---------------------------------------------------------------------------
+import os
+
+# Secret used to validate incoming JWTs.
+# For HS256 (symmetric): shared secret string.
+# For RS256/ES256 (asymmetric / OIDC): set to the provider's PEM public key.
+AUTH_JWT_SECRET    = os.environ.get('JWT_SECRET', 'dev-jwt-secret-change-in-production')
+
+# Must match the algorithm the SSO provider uses to sign tokens.
+# HS256 for simple shared-secret setups; RS256 for Okta / Auth0 / Keycloak / Google.
+AUTH_JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
+
+# Optional — validate the `aud` claim.  Set to your client_id in production.
+AUTH_JWT_AUDIENCE  = os.environ.get('JWT_AUDIENCE',  None)
+
+# Optional — validate the `iss` claim.  Set to your provider's issuer URL.
+AUTH_JWT_ISSUER    = os.environ.get('JWT_ISSUER',    None)
+
+# dev_auth: JWT lifetime for tokens issued by the local demo auth server.
+# Ignored in production (dev_auth endpoints are blocked when DEBUG=False).
+DEV_AUTH_TOKEN_TTL_HOURS = int(os.environ.get('DEV_AUTH_TOKEN_TTL_HOURS', 24))
