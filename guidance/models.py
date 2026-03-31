@@ -6,6 +6,7 @@ Django model for Guidance (runbook records).
 Natural key: (metric_name, priority, purpose).
 """
 
+from attachments.fields import SafeGenericRelation
 from django.db import models
 
 
@@ -28,6 +29,11 @@ class Guidance(models.Model):
 
     # {\"tags\": [], \"sla_minutes\": 60}
     resolution_meta  = models.JSONField(null=True, blank=True, default=dict)
+
+    attachments      = SafeGenericRelation(
+        "attachments.Attachment",
+        related_query_name="guidance",
+    )
 
     last_updated = models.DateTimeField(auto_now=True)
 

@@ -6,10 +6,13 @@ JSON API views for the guidance (runbook) app (no UI endpoints).
 
 import json
 
+from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
+from attachments.models import AttachmentKind
+from attachments.services import AttachmentService, AttachmentValidationError
 from guidance.models import Guidance
 from guidance.services import GuidanceService, GuidanceNotFoundError
 
@@ -23,6 +26,7 @@ def _serialize(obj: Guidance) -> dict:
         "resolution_steps": obj.resolution_steps or [],
         "resolver_notes":   obj.resolver_notes,
         "resolution_meta":  obj.resolution_meta,
+        "attachments":      AttachmentService.serialize_many(getattr(obj, "attachments").all()),
         "last_updated":     obj.last_updated.isoformat(),
     }
 
@@ -47,12 +51,24 @@ def guidance_list_or_upsert(request):
         if err:
             return err
 
+        attachments_payload = data.get("attachments", None)
         if not data.get("metric_name"):
             return JsonResponse({"error": "metric_name is required"}, status=400)
         if not data.get("resolution_steps"):
             return JsonResponse({"error": "resolution_steps must be a non-empty array"}, status=400)
 
-        obj, created = GuidanceService.upsert(data)
+        try:
+            with transaction.atomic():
+                obj, created = GuidanceService.upsert(data)
+                if attachments_payload is not None:
+                    AttachmentService.sync_for_object(
+                        obj,
+                        attachments_payload,
+                        allowed_kinds=[AttachmentKind.IMAGE],
+                    )
+        except AttachmentValidationError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
+
         return JsonResponse(_serialize(obj), status=201 if created else 200)
 
     # GET — paginated list
@@ -149,10 +165,20 @@ def guidance_detail(request, pk: int):
         data, err = _json_body(request)
         if err:
             return err
+        attachments_payload = data.get("attachments", None)
         try:
-            obj = GuidanceService.update_by_id(pk, data)
+            with transaction.atomic():
+                obj = GuidanceService.update_by_id(pk, data)
+                if attachments_payload is not None:
+                    AttachmentService.sync_for_object(
+                        obj,
+                        attachments_payload,
+                        allowed_kinds=[AttachmentKind.IMAGE],
+                    )
         except GuidanceNotFoundError as exc:
             return JsonResponse({"error": str(exc)}, status=404)
+        except AttachmentValidationError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
         return JsonResponse(_serialize(obj))
 
     # DELETE

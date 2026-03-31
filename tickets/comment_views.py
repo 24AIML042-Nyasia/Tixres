@@ -10,19 +10,21 @@ Visibility enforcement
 * POST — end_user may only post `external` comments; attempt to post
           `internal` is silently coerced to `external`.
           resolver + admin may post either.
-* PATCH — any authenticated user may edit their own non-deleted comment
-          (content only).  Visibility cannot be changed after creation.
+* PATCH — authors may edit their own non-deleted comment (content + attachments).
+          Visibility cannot be changed after creation.
 * DELETE — soft-delete: is_deleted=True, content blanked.
            Authors can delete their own; admin can delete any.
 """
 
 import json
-from datetime import datetime, timezone
 
+from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from attachments.models import AttachmentKind
+from attachments.services import AttachmentService, AttachmentValidationError
 from auth_core.decorators import require_auth
 from auth_core.models import Role
 from tickets.models import (
@@ -55,6 +57,7 @@ def _serialize(comment: TicketComment) -> dict:
         "is_deleted":  comment.is_deleted,
         "created_at":  comment.created_at.isoformat(),
         "updated_at":  comment.updated_at.isoformat(),
+        "attachments": AttachmentService.serialize_many(getattr(comment, "attachments").all()),
     }
 
 
@@ -82,7 +85,7 @@ def comment_list_create(request, ticket_id: int):
         qs = ticket.comments.filter(is_deleted=False)
         if not _can_see_internal(user):
             qs = qs.filter(visibility=COMMENT_VISIBILITY_EXTERNAL)
-        comments = list(qs.select_related("author").order_by("created_at"))
+        comments = list(qs.select_related("author").prefetch_related("attachments").order_by("created_at"))
         return JsonResponse({
             "ticket_id": ticket_id,
             "count":     len(comments),
@@ -94,6 +97,7 @@ def comment_list_create(request, ticket_id: int):
     if err:
         return err
 
+    attachments_payload = data.get("attachments", None)
     content = (data.get("content") or "").strip()
     if not content:
         return JsonResponse({"error": "'content' is required"}, status=400)
@@ -108,12 +112,23 @@ def comment_list_create(request, ticket_id: int):
     else:
         visibility = COMMENT_VISIBILITY_EXTERNAL
 
-    comment = TicketComment.objects.create(
-        ticket     = ticket,
-        author     = user,
-        content    = content,
-        visibility = visibility,
-    )
+    try:
+        with transaction.atomic():
+            comment = TicketComment.objects.create(
+                ticket     = ticket,
+                author     = user,
+                content    = content,
+                visibility = visibility,
+            )
+            if attachments_payload is not None:
+                AttachmentService.sync_for_object(
+                    comment,
+                    attachments_payload,
+                    allowed_kinds=[AttachmentKind.IMAGE],
+                )
+    except AttachmentValidationError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+
     return JsonResponse(_serialize(comment), status=201)
 
 
@@ -126,7 +141,7 @@ def comment_list_create(request, ticket_id: int):
 @require_http_methods(["PATCH", "DELETE"])
 def comment_detail(request, ticket_id: int, comment_id: int):
     try:
-        comment = TicketComment.objects.select_related("author").get(
+        comment = TicketComment.objects.select_related("author").prefetch_related("attachments").get(
             pk=comment_id, ticket_id=ticket_id
         )
     except TicketComment.DoesNotExist:
@@ -146,12 +161,34 @@ def comment_detail(request, ticket_id: int, comment_id: int):
         if err:
             return err
 
-        content = (data.get("content") or "").strip()
-        if not content:
-            return JsonResponse({"error": "'content' is required"}, status=400)
+        attachments_supplied = "attachments" in data
+        attachments_payload  = data.get("attachments")
 
-        comment.content = content
-        comment.save(update_fields=["content", "updated_at"])
+        content_supplied = "content" in data
+        if content_supplied:
+            content = (data.get("content") or "").strip()
+            if not content:
+                return JsonResponse({"error": "'content' is required"}, status=400)
+        elif not attachments_supplied:
+            return JsonResponse({"error": "No updatable fields provided"}, status=400)
+
+        try:
+            with transaction.atomic():
+                if content_supplied:
+                    comment.content = content
+                if content_supplied or attachments_supplied:
+                    fields = ["updated_at"]
+                    if content_supplied:
+                        fields.insert(0, "content")
+                    comment.save(update_fields=fields)
+                if attachments_supplied:
+                    AttachmentService.sync_for_object(
+                        comment,
+                        attachments_payload,
+                        allowed_kinds=[AttachmentKind.IMAGE],
+                    )
+        except AttachmentValidationError as exc:
+            return JsonResponse({"error": str(exc)}, status=400)
         return JsonResponse(_serialize(comment))
 
     # DELETE — soft-delete
@@ -164,4 +201,5 @@ def comment_detail(request, ticket_id: int, comment_id: int):
     comment.is_deleted = True
     comment.content    = ""          # blank content for privacy
     comment.save(update_fields=["is_deleted", "content", "updated_at"])
+    AttachmentService.purge_for_object(comment)
     return JsonResponse({"deleted": True, "comment_id": comment_id})

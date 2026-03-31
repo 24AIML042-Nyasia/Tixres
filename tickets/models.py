@@ -14,6 +14,7 @@ The constants below are default fallbacks used only when no WorkflowStatus
 rows exist yet (e.g. during test setup before migrations have run).
 """
 
+from attachments.fields import SafeGenericRelation
 from django.db import models
 
 # Fallback defaults — real values come from WorkflowStatus rows.
@@ -95,6 +96,10 @@ class TicketComment(models.Model):
         null         = True,
         blank        = True,
         related_name = "ticket_comments",
+    )
+    attachments = SafeGenericRelation(
+        "attachments.Attachment",
+        related_query_name="ticket_comment",
     )
     content    = models.TextField()
     visibility = models.CharField(

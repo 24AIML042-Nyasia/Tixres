@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from attachments.services import AttachmentService
 from guidance.models import Guidance, Priority
 
 
@@ -71,7 +72,7 @@ class GuidanceService:
     @staticmethod
     def get_by_id(guidance_id: int) -> Guidance:
         try:
-            return Guidance.objects.get(pk=guidance_id)
+            return Guidance.objects.prefetch_related("attachments").get(pk=guidance_id)
         except Guidance.DoesNotExist:
             raise GuidanceNotFoundError(f"id={guidance_id}")
 
@@ -82,7 +83,7 @@ class GuidanceService:
         purpose: str = "general",
     ) -> Guidance:
         try:
-            return Guidance.objects.get(
+            return Guidance.objects.prefetch_related("attachments").get(
                 metric_name = metric_name,
                 priority    = priority,
                 purpose     = purpose,
@@ -102,7 +103,7 @@ class GuidanceService:
         purpose: Optional[str] = None,
     ) -> tuple[int, list[Guidance]]:
         """Paginated list with optional filters. Returns (total, records)."""
-        qs = Guidance.objects.all()
+        qs = Guidance.objects.all().prefetch_related("attachments")
 
         if priority:
             qs = qs.filter(priority=priority)
@@ -126,7 +127,7 @@ class GuidanceService:
         Only fields explicitly set in the payload are applied (PATCH semantics).
         """
         try:
-            obj = Guidance.objects.get(pk=guidance_id)
+            obj = Guidance.objects.prefetch_related("attachments").get(pk=guidance_id)
         except Guidance.DoesNotExist:
             raise GuidanceNotFoundError(f"id={guidance_id}")
 
@@ -153,6 +154,7 @@ class GuidanceService:
             obj = Guidance.objects.get(pk=guidance_id)
         except Guidance.DoesNotExist:
             raise GuidanceNotFoundError(f"id={guidance_id}")
+        AttachmentService.purge_for_object(obj)
         obj.delete()
         return {"deleted": True, "id": guidance_id}
 
