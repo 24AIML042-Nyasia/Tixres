@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'alerts',
     'guidance',
     'dev_auth',   # ⚠️  remove from INSTALLED_APPS in production
+    'workflows',
 ]
 
 MIDDLEWARE = [

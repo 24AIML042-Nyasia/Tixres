@@ -1,38 +1,33 @@
 """
 tickets/models.py
 -----------------
-Django model for Ticket.
+Django model for Ticket and TicketComment.
 
 A Ticket is an agent-level issue record created by anomaly detectors.
 Tickets deduplicate noisy events and feed Alerts.
+
+Status values are NOT hardcoded here.  They are DB rows in the
+WorkflowStatus table (workflows app), scoped per purpose/team.
+WorkflowService provides all runtime lookups.
+
+The constants below are default fallbacks used only when no WorkflowStatus
+rows exist yet (e.g. during test setup before migrations have run).
 """
 
 from django.db import models
 
+# Fallback defaults — real values come from WorkflowStatus rows.
 TICKET_STATUS_OPEN   = "OPEN"
 TICKET_STATUS_ACK    = "ACK"
 TICKET_STATUS_CLOSED = "CLOSED"
-
-_STATUS_CHOICES = [
-    (TICKET_STATUS_OPEN,   "Open"),
-    (TICKET_STATUS_ACK,    "Acknowledged"),
-    (TICKET_STATUS_CLOSED, "Closed"),
-]
-
-_SEVERITY_CHOICES = [
-    ("P1", "P1"),
-    ("P2", "P2"),
-    ("P3", "P3"),
-    ("P4", "P4"),
-]
 
 
 class Ticket(models.Model):
     agent_id         = models.CharField(max_length=255, db_index=True)
     metric_name      = models.CharField(max_length=255, db_index=True)
-    severity         = models.CharField(max_length=10, choices=_SEVERITY_CHOICES)
+    severity         = models.CharField(max_length=50)
     purpose          = models.CharField(max_length=255, default="general", db_index=True)
-    status           = models.CharField(max_length=20, choices=_STATUS_CHOICES, default=TICKET_STATUS_OPEN)
+    status           = models.CharField(max_length=50, default=TICKET_STATUS_OPEN)
 
     # JSON string — list of detector names e.g. '["zscore"]'
     detectors        = models.TextField(default="[]")
@@ -56,3 +51,69 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f"<Ticket id={self.pk} agent={self.agent_id} metric={self.metric_name} sev={self.severity}>"
+
+
+# ---------------------------------------------------------------------------
+# TicketComment
+# ---------------------------------------------------------------------------
+
+COMMENT_VISIBILITY_EXTERNAL = "external"
+COMMENT_VISIBILITY_INTERNAL = "internal"
+
+_VISIBILITY_CHOICES = [
+    (COMMENT_VISIBILITY_EXTERNAL, "External"),   # visible to all roles
+    (COMMENT_VISIBILITY_INTERNAL, "Internal"),   # resolver + admin only
+]
+
+
+class TicketComment(models.Model):
+    """
+    A comment attached to a Ticket.
+
+    Visibility
+    ----------
+    external — visible to all authenticated users (the primary channel for
+               end-users to communicate with the resolver team).
+    internal — resolver + admin only (back-channel notes, investigation logs).
+
+    Soft-delete
+    -----------
+    Calling delete() sets is_deleted=True and blanks content.  The row is kept
+    for audit.  Admin can soft-delete any comment; authors can delete their own.
+    """
+
+    ticket = models.ForeignKey(
+        Ticket,
+        on_delete    = models.CASCADE,
+        related_name = "comments",
+        db_index     = True,
+    )
+    # Nullable so the row survives if the author account is removed
+    author = models.ForeignKey(
+        "auth_core.SSOUser",
+        on_delete    = models.SET_NULL,
+        null         = True,
+        blank        = True,
+        related_name = "ticket_comments",
+    )
+    content    = models.TextField()
+    visibility = models.CharField(
+        max_length = 10,
+        choices    = _VISIBILITY_CHOICES,
+        default    = COMMENT_VISIBILITY_EXTERNAL,
+        db_index   = True,
+    )
+    is_deleted = models.BooleanField(default=False, db_index=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ticket_comments"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return (
+            f"<TicketComment id={self.pk} ticket={self.ticket_id} "
+            f"vis={self.visibility} deleted={self.is_deleted}>"
+        )

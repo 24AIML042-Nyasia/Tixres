@@ -5,44 +5,33 @@ Django model for Alert.
 
 An Alert represents a correlated, deduplicated view of one or more Tickets
 sharing the same (metric_name, severity, purpose) key.
+
+Status values are NOT hardcoded here — they are DB rows in WorkflowStatus.
+Fallback constants below are only used before migration data is seeded.
 """
 
 from django.db import models
 
+# Fallback defaults — real values come from WorkflowStatus rows.
 ALERT_STATUS_OPEN   = "OPEN"
 ALERT_STATUS_ACK    = "ACK"
 ALERT_STATUS_CLOSED = "CLOSED"
-
-_STATUS_CHOICES = [
-    (ALERT_STATUS_OPEN,   "Open"),
-    (ALERT_STATUS_ACK,    "Acknowledged"),
-    (ALERT_STATUS_CLOSED, "Closed"),
-]
 
 _TYPE_CHOICES = [
     ("SINGLE", "Single"),
     ("GROUP",  "Group"),
 ]
 
-_SEVERITY_CHOICES = [
-    ("P1", "P1"),
-    ("P2", "P2"),
-    ("P3", "P3"),
-    ("P4", "P4"),
-]
-
 
 class Alert(models.Model):
     # --- Identity key: (metric_name, severity, purpose) ---
     metric_name = models.CharField(max_length=255, db_index=True)
-    severity    = models.CharField(max_length=10,  choices=_SEVERITY_CHOICES, db_index=True)
+    severity    = models.CharField(max_length=50,  db_index=True)
     purpose     = models.CharField(max_length=255, default="general", db_index=True)
 
     # --- Classification ---
-    # SINGLE → only one agent has fired this alert
-    # GROUP  → two or more agents have fired it (escalated)
-    type   = models.CharField(max_length=10, choices=_TYPE_CHOICES,   default="SINGLE")
-    status = models.CharField(max_length=10, choices=_STATUS_CHOICES, default=ALERT_STATUS_OPEN)
+    type   = models.CharField(max_length=10, choices=_TYPE_CHOICES, default="SINGLE")
+    status = models.CharField(max_length=50, default=ALERT_STATUS_OPEN)
 
     # JSON-encoded list of agent_ids that contributed, e.g. '["agent_1","agent_2"]'
     agent_ids = models.TextField(default="[]")

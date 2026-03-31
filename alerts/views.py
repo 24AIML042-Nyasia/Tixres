@@ -14,6 +14,13 @@ from alerts.models import Alert
 from alerts.resolution import ResolutionService
 
 
+def _json_body(request):
+    try:
+        return json.loads(request.body), None
+    except (json.JSONDecodeError, TypeError):
+        return {}, JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+
 def _serialize_alert(a: Alert) -> dict:
     def _iso(dt):
         return dt.isoformat() if dt else None
@@ -106,3 +113,94 @@ def alert_resolve(request, alert_id: int):
 
     ResolutionService.resolve_alert(alert)
     return JsonResponse({"message": "Alert resolved", "resolved_id": alert_id})
+
+
+# ---------------------------------------------------------------------------
+# POST /api/alerts/<alert_id>/broadcast/
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def alert_broadcast(request, alert_id: int):
+    """
+    Broadcast a comment to every non-closed ticket associated with this alert.
+
+    The alert and tickets are linked by the natural key
+    (metric_name, severity, purpose).  All OPEN or ACK tickets matching that
+    key receive the comment.
+
+    Body (JSON):
+        content     str   required — the message to broadcast
+        visibility  str   optional — "external" (default) | "internal"
+
+    Only resolver and admin may post internal broadcasts.
+    End-user broadcasts are always coerced to "external".
+
+    Response:
+        {
+          "alert_id": 1,
+          "message": "Broadcast sent",
+          "comment_ids": [10, 11, 12],   ← one TicketComment per matched ticket
+          "ticket_count": 3
+        }
+    """
+    try:
+        alert = Alert.objects.get(pk=alert_id)
+    except Alert.DoesNotExist:
+        return JsonResponse({"error": f"Alert {alert_id} not found"}, status=404)
+
+    data, err = _json_body(request)
+    if err:
+        return err
+
+    content = (data.get("content") or "").strip()
+    if not content:
+        return JsonResponse({"error": "'content' is required"}, status=400)
+
+    # Resolve author from JWT middleware (may be None for unauthenticated requests)
+    user = getattr(request, "sso_user", None)
+    from auth_core.models import Role as _Role
+    can_internal = user and user.role in (_Role.RESOLVER, _Role.ADMIN)
+
+    requested_vis = data.get("visibility", "external")
+    visibility    = "internal" if (can_internal and requested_vis == "internal") else "external"
+
+    # Find all OPEN / ACK tickets matching the alert's natural key
+    from tickets.models import (
+        Ticket,
+        TicketComment,
+        TICKET_STATUS_OPEN,
+        TICKET_STATUS_ACK,
+        COMMENT_VISIBILITY_EXTERNAL,
+        COMMENT_VISIBILITY_INTERNAL,
+    )
+
+    tickets = Ticket.objects.filter(
+        metric_name = alert.metric_name,
+        severity    = alert.severity,
+        purpose     = alert.purpose,
+        status__in  = [TICKET_STATUS_OPEN, TICKET_STATUS_ACK],
+    )
+
+    vis_const = (
+        COMMENT_VISIBILITY_INTERNAL if visibility == "internal"
+        else COMMENT_VISIBILITY_EXTERNAL
+    )
+
+    comments = TicketComment.objects.bulk_create([
+        TicketComment(
+            ticket     = ticket,
+            author     = user,
+            content    = content,
+            visibility = vis_const,
+        )
+        for ticket in tickets
+    ])
+
+    return JsonResponse({
+        "alert_id":     alert_id,
+        "message":      "Broadcast sent",
+        "visibility":   visibility,
+        "comment_ids":  [c.pk for c in comments],
+        "ticket_count": len(comments),
+    })
