@@ -32,6 +32,8 @@ COOLDOWN_MINUTES: dict[str, int] = {
     "P1":       10,
     "P2":       15,
     "P3":       30,
+    "P4":       30,
+    "P0":       30,
     "Critical": 5,
     "High":     15,
     "Medium":   30,
@@ -48,6 +50,7 @@ RESOLUTION_HOURS: dict[str, int] = {
     "P2":       6,
     "P3":       12,
     "P4":       24,
+    "P0":       24,
     "Critical": 1,
     "High":     6,
     "Medium":   12,
@@ -58,7 +61,7 @@ RESOLUTION_HOURS: dict[str, int] = {
 # Severities that never create / update alerts
 # ---------------------------------------------------------------------------
 # Extend this set if your team uses different low-priority severity labels.
-IGNORED_SEVERITIES: set[str] = {"P4", "Low"}
+IGNORED_SEVERITIES: set[str] = {"P4", "P0", "Low"}
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -130,12 +133,13 @@ SEVERITY_P1 = "P1"
 SEVERITY_P2 = "P2"
 SEVERITY_P3 = "P3"
 SEVERITY_P4 = "P4"
+SEVERITY_P0 = "P0"
 
-# Ordered from most to least severe — can be iterated for priority logic
-SEVERITIES: list[str] = [SEVERITY_P1, SEVERITY_P2, SEVERITY_P3, SEVERITY_P4]
+# Ordered from most to least severe – can be iterated for priority logic
+SEVERITIES: list[str] = [SEVERITY_P1, SEVERITY_P2, SEVERITY_P3, SEVERITY_P4, SEVERITY_P0]
 
 # Severities that never create/update alerts
-IGNORED_SEVERITIES: set[str] = {SEVERITY_P4}
+IGNORED_SEVERITIES: set[str] = {SEVERITY_P4, SEVERITY_P0}
 
 # ---------------------------------------------------------------------------
 # Django model field helper: returns choices tuples from the canonical lists
@@ -181,7 +185,8 @@ RESOLUTION_HOURS: dict[str, int] = {
     SEVERITY_P1: 2,
     SEVERITY_P2: 6,
     SEVERITY_P3: 12,
-    SEVERITY_P4: 24,   # kept for completeness; P4 alerts are never created
+    SEVERITY_P4: 24,   # kept for completeness; P4/P0 alerts are never created
+    SEVERITY_P0: 24,
 }
 
 # ---------------------------------------------------------------------------
@@ -189,7 +194,7 @@ RESOLUTION_HOURS: dict[str, int] = {
 # ---------------------------------------------------------------------------
 
 def do_ignore_ticket_by_severity(severity: str) -> bool:
-    """Return True for severities that should never create or update alerts (P4)."""
+    """Return True for severities that should never create or update alerts (P4, P0)."""
     return severity in IGNORED_SEVERITIES
 
 

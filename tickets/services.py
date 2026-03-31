@@ -19,11 +19,10 @@ event is *merged* rather than creating a new row:
 The `detector` field is intentionally excluded from the match key so that
 events from different detectors for the same issue collapse into one ticket.
 
-P4 filtering
-------------
-P4 tickets are stored in the DB for audit purposes but are:
-  * Excluded from the deduplication window query via _find_duplicate
-    (severity != 'P4' filter).
+Ignored severities (P0/P4)
+--------------------------
+P0 and P4 tickets are stored in the DB for audit purposes but are:
+  * Excluded from the deduplication window query via _find_duplicate.
   * Never forwarded to AlertService.
   * Excluded from get_tickets by default (include_p4=False).
 """
@@ -41,7 +40,7 @@ from tickets.models import (
 )
 from tickets.assignment import AssignmentService
 
-_P4_SEVERITY = "P4"
+_IGNORED_SEVERITIES = {"P4", "P0"}
 
 
 class TicketService:
@@ -83,9 +82,9 @@ class TicketService:
     ) -> Ticket | None:
         """
         Find an existing OPEN/ACK, non-P4 ticket that can absorb the incoming event.
-        Returns None for P4 severity (P4 tickets are never deduplicated).
+        Returns None for ignored severities (P0/P4 tickets are never deduplicated).
         """
-        if severity == _P4_SEVERITY:
+        if severity in _IGNORED_SEVERITIES:
             return None
 
         minutes = window_minutes or TicketService.DEDUP_WINDOW_MINUTES
@@ -152,8 +151,8 @@ class TicketService:
         """
         purpose_value = TicketService._resolve_purpose(agent_id, purpose)
 
-        # P4: always insert; never deduplicate
-        effective_dedup = dedup and (severity != _P4_SEVERITY)
+        # P0/P4: always insert; never deduplicate
+        effective_dedup = dedup and (severity not in _IGNORED_SEVERITIES)
 
         if effective_dedup:
             existing = TicketService._find_duplicate(
@@ -199,7 +198,7 @@ class TicketService:
             "ticket_id":        ticket.pk,
             "ticket":           ticket,
             "occurrence_count": 1,
-            "is_p4":            severity == _P4_SEVERITY,
+            "is_p4":            severity in _IGNORED_SEVERITIES,
         }
         result.update(TicketService._assignment_payload(ticket, decision))
         return result
@@ -215,7 +214,7 @@ class TicketService:
         """
         qs = Ticket.objects.filter(agent_id=agent_id)
         if not include_p4:
-            qs = qs.exclude(severity=_P4_SEVERITY)
+            qs = qs.exclude(severity__in=_IGNORED_SEVERITIES)
 
         tickets = qs.select_related("assigned_to").order_by("-last_occurred_at")[:limit]
 

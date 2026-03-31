@@ -107,3 +107,34 @@ class AssignmentServiceTests(TestCase):
         self.assertFalse(result["created"])
         self.assertEqual(merged.assigned_to, self.resolver_a)
         self.assertEqual(merged.assignment_strategy, "manual")
+
+
+class TicketServiceIgnoredSeverityTests(TestCase):
+    def test_p0_is_never_deduped_and_is_flagged(self):
+        result1 = TicketService.create_ticket(
+            agent_id="agent-9",
+            metric_name="user.report",
+            severity="P0",
+            detector="user_form",
+            meta="{}",
+            message="first",
+        )
+        result2 = TicketService.create_ticket(
+            agent_id="agent-9",
+            metric_name="user.report",
+            severity="P0",
+            detector="user_form",
+            meta="{}",
+            message="second",
+        )
+
+        self.assertTrue(result1["created"])
+        self.assertTrue(result2["created"], "ignored severities should never dedup")
+        self.assertTrue(result1["is_p4"])
+        self.assertTrue(result2["is_p4"])
+
+        tickets = TicketService.get_tickets("agent-9")
+        self.assertEqual(len(tickets), 0, "ignored severities are hidden unless include_p4=true")
+
+        tickets_all = TicketService.get_tickets("agent-9", include_p4=True)
+        self.assertEqual(len(tickets_all), 2)

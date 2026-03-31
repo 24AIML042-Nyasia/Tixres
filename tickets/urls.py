@@ -3,6 +3,7 @@ from tickets import views
 from tickets import comment_views
 
 urlpatterns = [
+    path("report/",                      views.ticket_report_form,      name="ticket-report-form"),
     path("<str:agent_id>/latest/",        views.ticket_list,            name="ticket-list"),
     path("create/",                        views.ticket_create,          name="ticket-create"),
     path("<int:ticket_id>/acknowledge/",   views.ticket_acknowledge,     name="ticket-acknowledge"),

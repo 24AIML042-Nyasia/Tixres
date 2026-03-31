@@ -7,7 +7,7 @@ JSON API views for the tickets app (no UI endpoints).
 import json
 from datetime import datetime, timezone
 
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
@@ -16,8 +16,14 @@ from auth_core.decorators import require_auth, require_role
 from auth_core.models import Role as _Role
 from auth_core.services import AuthService
 from tickets.assignment import AssignmentService, AssignmentDecision
-from tickets.models import Ticket
+from tickets.models import (
+    Ticket,
+    TicketComment,
+    COMMENT_VISIBILITY_EXTERNAL,
+)
 from tickets.services import TicketService
+from attachments.services import AttachmentService, AttachmentValidationError
+from attachments.models import AttachmentKind
 
 
 def _json_body(request) -> tuple[dict, JsonResponse | None]:
@@ -27,6 +33,176 @@ def _json_body(request) -> tuple[dict, JsonResponse | None]:
         return data, None
     except (json.JSONDecodeError, TypeError):
         return {}, JsonResponse({"error": "Invalid JSON body"}, status=400)
+
+
+def _render_report_form(initial: dict | None = None, errors: list[str] | None = None, ticket_id: int | None = None) -> HttpResponse:
+    initial = initial or {}
+    errors = errors or []
+    base_style = """
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7fb; padding: 32px; }
+      .card { max-width: 640px; margin: 0 auto; background: #fff; padding: 24px 28px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+      h1 { margin-top: 0; font-size: 20px; }
+      label { display: block; font-weight: 600; margin: 16px 0 6px; }
+      input, textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #d7d9e0; font-size: 14px; }
+      textarea { min-height: 120px; resize: vertical; }
+      .hint { color: #6b7280; font-size: 12px; margin-top: 4px; }
+      .error { background: #fff5f5; color: #b91c1c; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #fecdd3; }
+      .success { background: #ecfdf3; color: #166534; padding: 12px 14px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #bbf7d0; }
+      button { background: #111827; color: #fff; border: none; padding: 12px 16px; border-radius: 10px; font-size: 14px; cursor: pointer; margin-top: 18px; }
+      button:hover { background: #0b1220; }
+      .flex { display: flex; gap: 12px; }
+      .flex .col { flex: 1; }
+    </style>
+    """
+    success_html = ""
+    if ticket_id is not None:
+        success_html = f'<div class="success">Thanks! Ticket <strong>#{ticket_id}</strong> was created with priority P0.</div>'
+
+    errors_html = "".join(f'<div class="error">{e}</div>' for e in errors)
+    html = f"""
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Report an Issue</title>
+        {base_style}
+      </head>
+      <body>
+        <div class="card">
+          <h1>Report an Issue</h1>
+          {success_html}
+          {errors_html}
+          <form method="post">
+            <label for="agent_id">Agent ID *</label>
+            <input id="agent_id" name="agent_id" value="{initial.get('agent_id', '')}" placeholder="agent-prod-1" required />
+            <div class="hint">Purpose will be auto-fetched from this agent.</div>
+
+            <label for="metric_name">Metric / Component *</label>
+            <input id="metric_name" name="metric_name" value="{initial.get('metric_name', 'user.report')}" placeholder="user.report" required />
+
+            <label for="message">What happened? *</label>
+            <textarea id="message" name="message" placeholder="Describe the issue, expected vs actual, timestamps, links..." required>{initial.get('message', '')}</textarea>
+
+            <div class="flex">
+              <div class="col">
+                <label for="reporter_name">Your name</label>
+                <input id="reporter_name" name="reporter_name" value="{initial.get('reporter_name', '')}" placeholder="Ada Lovelace" />
+              </div>
+              <div class="col">
+                <label for="reporter_email">Email</label>
+                <input id="reporter_email" name="reporter_email" value="{initial.get('reporter_email', '')}" placeholder="you@example.com" />
+              </div>
+            </div>
+
+            <label for="attachments">Attachment links (one per line)</label>
+            <textarea id="attachments" name="attachments" placeholder="https://.../screenshot1.png\nhttps://.../har.log">{initial.get('attachments', '')}</textarea>
+            <div class="hint">Paste URLs to images or files stored elsewhere; they will attach to the first comment.</div>
+
+            <button type="submit">Submit P0 Ticket</button>
+          </form>
+        </div>
+      </body>
+    </html>
+    """
+    return HttpResponse(html)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def ticket_report_form(request):
+    """
+    Simple HTML form for user-submitted tickets (always severity P0, no dedup).
+    Purpose is inferred from the agent_id via TicketService._resolve_purpose.
+    """
+    if request.method == "GET":
+        return _render_report_form()
+
+    data = request.POST
+    initial = {
+        "agent_id": data.get("agent_id", "").strip(),
+        "metric_name": data.get("metric_name", "").strip(),
+        "message": data.get("message", "").strip(),
+        "reporter_name": data.get("reporter_name", "").strip(),
+        "reporter_email": data.get("reporter_email", "").strip(),
+        "attachments": data.get("attachments", "").strip(),
+    }
+
+    errors: list[str] = []
+    if not initial["agent_id"]:
+        errors.append("Agent ID is required.")
+    if not initial["metric_name"]:
+        errors.append("Metric / Component is required.")
+    if not initial["message"]:
+        errors.append("Message is required.")
+
+    attachments_payload: list[dict] = []
+    if initial["attachments"]:
+        # allow comma or newline separated URLs
+        raw_items = []
+        for line in initial["attachments"].splitlines():
+            raw_items.extend([p for p in line.split(",") if p.strip()])
+        for idx, url in enumerate(raw_items):
+            url = url.strip()
+            if not url:
+                continue
+            attachments_payload.append(
+                {
+                    "kind": AttachmentKind.IMAGE,
+                    "url": url,
+                    "file_name": f"attachment-{idx + 1}",
+                }
+            )
+
+    if errors:
+        return _render_report_form(initial, errors)
+
+    meta = {
+        "reporter_name": initial["reporter_name"],
+        "reporter_email": initial["reporter_email"],
+        "source": "user_form",
+    }
+
+    try:
+        result = TicketService.create_ticket(
+            agent_id             = initial["agent_id"],
+            metric_name          = initial["metric_name"] or "user.report",
+            severity             = "P0",
+            detector             = "user_form",
+            meta                 = json.dumps(meta),
+            message              = initial["message"],
+            dedup                = False,
+            dedup_window_minutes = None,
+            purpose              = None,
+        )
+        ticket = result["ticket"]
+
+        comment = TicketComment.objects.create(
+            ticket     = ticket,
+            author     = getattr(request, "sso_user", None),
+            content    = initial["message"],
+            visibility = COMMENT_VISIBILITY_EXTERNAL,
+        )
+        if attachments_payload:
+            AttachmentService.sync_for_object(
+                comment,
+                attachments_payload,
+                allowed_kinds=[AttachmentKind.IMAGE],
+            )
+    except AttachmentValidationError as exc:
+        return _render_report_form(initial, [str(exc)])
+    except Exception as exc:  # pragma: no cover - defensive UX
+        return _render_report_form(initial, [f"Could not create ticket: {exc}"])
+
+    return _render_report_form(
+        {
+            "agent_id": initial["agent_id"],
+            "metric_name": initial["metric_name"],
+            "attachments": initial["attachments"],
+        },
+        [],
+        ticket_id=ticket.pk,
+    )
 
 
 # ---------------------------------------------------------------------------
