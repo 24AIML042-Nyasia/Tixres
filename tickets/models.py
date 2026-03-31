@@ -46,6 +46,20 @@ class Ticket(models.Model):
     acknowledged_at  = models.DateTimeField(null=True, blank=True)
     acknowledged_by  = models.CharField(max_length=255, null=True, blank=True)
 
+    # Auto-assignment metadata
+    assigned_to          = models.ForeignKey(
+        "auth_core.SSOUser",
+        null         = True,
+        blank        = True,
+        on_delete    = models.SET_NULL,
+        related_name = "assigned_tickets",
+        db_index     = True,
+    )
+    assigned_at          = models.DateTimeField(null=True, blank=True)
+    assignment_strategy  = models.CharField(max_length=50, blank=True, default="")
+    assignment_reason    = models.TextField(blank=True, default="")
+    auto_assigned        = models.BooleanField(default=False)
+
     class Meta:
         db_table = "tickets"
         ordering = ["-last_occurred_at"]

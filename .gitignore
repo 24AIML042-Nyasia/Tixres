@@ -4,3 +4,5 @@ old/
 
 __pycache__/
 *.md
+
+!docs/*.md

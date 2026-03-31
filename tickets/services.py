@@ -39,6 +39,7 @@ from tickets.models import (
     TICKET_STATUS_ACK,
     TICKET_STATUS_CLOSED,
 )
+from tickets.assignment import AssignmentService
 
 _P4_SEVERITY = "P4"
 
@@ -161,7 +162,7 @@ class TicketService:
             if existing:
                 TicketService._merge_into(existing, detector, message)
                 existing.refresh_from_db()
-                return {
+                result = {
                     "created":          False,
                     "merged":           True,
                     "ticket_id":        existing.pk,
@@ -169,6 +170,8 @@ class TicketService:
                     "occurrence_count": existing.occurrence_count,
                     "is_p4":            False,
                 }
+                result.update(TicketService._assignment_payload(existing))
+                return result
 
         now = datetime.now(tz=timezone.utc)
         ticket = Ticket.objects.create(
@@ -185,7 +188,12 @@ class TicketService:
             last_occurred_at  = now,
         )
 
-        return {
+        decision = AssignmentService.assign(ticket)
+
+        # Refresh ticket so assigned_to select_related is available downstream
+        ticket.refresh_from_db()
+
+        result = {
             "created":          True,
             "merged":           False,
             "ticket_id":        ticket.pk,
@@ -193,6 +201,8 @@ class TicketService:
             "occurrence_count": 1,
             "is_p4":            severity == _P4_SEVERITY,
         }
+        result.update(TicketService._assignment_payload(ticket, decision))
+        return result
 
     @staticmethod
     def get_tickets(
@@ -207,10 +217,11 @@ class TicketService:
         if not include_p4:
             qs = qs.exclude(severity=_P4_SEVERITY)
 
-        tickets = qs.order_by("-last_occurred_at")[:limit]
+        tickets = qs.select_related("assigned_to").order_by("-last_occurred_at")[:limit]
 
-        return [
-            {
+        items: list[dict] = []
+        for t in tickets:
+            payload = {
                 "id":               t.pk,
                 "agent_id":         t.agent_id,
                 "metric_name":      t.metric_name,
@@ -227,8 +238,23 @@ class TicketService:
                 "acknowledged_at":  t.acknowledged_at,
                 "acknowledged_by":  t.acknowledged_by,
             }
-            for t in tickets
-        ]
+            payload.update(TicketService._assignment_payload(t))
+            items.append(payload)
+        return items
+
+    @staticmethod
+    def _assignment_payload(ticket: Ticket, decision=None) -> dict:
+        assignee = ticket.assigned_to if hasattr(ticket, "assigned_to") else None
+        return {
+            "assigned_to":          ticket.assigned_to_id,
+            "assigned_to_email":    getattr(assignee, "email", None),
+            "assigned_to_name":     getattr(assignee, "name", None),
+            "assigned_at":          ticket.assigned_at,
+            "assignment_strategy":  ticket.assignment_strategy,
+            "assignment_reason":    ticket.assignment_reason,
+            "auto_assigned":        ticket.auto_assigned,
+            "assignment_decision":  getattr(decision, "strategy", None) if decision else None,
+        }
 
     @staticmethod
     def acknowledge_ticket(ticket_id: int, acked_by: str) -> bool:
