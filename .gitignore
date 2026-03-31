@@ -1,1 +1,5 @@
 .venv/
+old/
+*.sqlite3
+
+__pycache__/
