@@ -974,9 +974,14 @@
   // ── view switching ─────────────────────────────────────────────────────────
   function switchView(view) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('view-' + view).classList.add('active');
-    document.querySelectorAll('.nav-tab')[view === 'metrics' ? 0 : 1].classList.add('active');
+    document.querySelectorAll('.nav-tab').forEach(t => {
+      const val = t.getAttribute('onclick') || '';
+      t.classList.toggle('active', val.includes(`'${view}'`));
+    });
+    if (view === 'alerts') {
+      loadAlertsView();
+    }
   }
 
   // ── tickets & alerts ────────────────────────────────────────────────────────
@@ -986,6 +991,8 @@
   let taResolverAgentFilter = '';
   let taPriorityFilter = '';
   let taDetectorFilter = '';
+  let alertStatusFilter = '';
+  let alertPriorityFilter = '';
 
   function setPriorityFilter(el) {
     document.querySelectorAll('#ta-priority-chips .meas-btn').forEach(b => b.classList.remove('active'));
@@ -1260,6 +1267,9 @@
       <div class="ticket-footer">
         <div class="ticket-detectors">${detectors}</div>
         <span>×${t.occurrence_count} · ${fmtTime(t.last_occurred_at)}</span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="ping-btn" style="padding:6px 10px;font-size:12px" onclick="openComments(${t.id}, '${base}')">💬 Comments</button>
       </div>`;
     return el;
   }
@@ -1272,11 +1282,15 @@
     const statusCls = a.status === 'OPEN' ? 'badge-open' : a.status === 'ACK' ? 'badge-ack' : 'badge-closed';
     const typeCls = a.type === 'GROUP' ? 'badge-group' : 'badge-single';
     const actions = a.status === 'OPEN'
-      ? `<div style="display:flex;gap:8px">
-           <button class="ack-btn" onclick="ackAlert(${a.id},'${base}',this)">Acknowledge</button>
-           <button class="resolve-btn" onclick="resolveAlert(${a.id},'${base}',this)">Resolve</button>
-         </div>`
-      : `<span style="font-size:11px;color:var(--muted)">${a.status === 'ACK' ? `Acked by ${a.acknowledged_by||'resolver'}` : `Closed ${fmtTime(a.closed_at)}`}</span>`;
+      ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="ack-btn" onclick="ackAlert(${a.id},'${base}',this)">Acknowledge</button>
+          <button class="resolve-btn" onclick="resolveAlert(${a.id},'${base}',this)">Resolve</button>
+          <button class="ping-btn" style="padding:6px 10px;font-size:12px" onclick="broadcastAlert(${a.id}, '${base}', this)">Broadcast</button>
+        </div>`
+      : `<div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--muted)">${a.status === 'ACK' ? `Acked by ${a.acknowledged_by||'resolver'}` : `Closed ${fmtTime(a.closed_at)}`}</span>
+          <button class="ping-btn" style="padding:6px 10px;font-size:12px" onclick="broadcastAlert(${a.id}, '${base}', this)">Broadcast</button>
+        </div>`;
     el.innerHTML = `
       <div class="ticket-header">
         <div class="ticket-metric">${a.metric_name}</div>
@@ -1322,6 +1336,28 @@
     } catch { btn.disabled = false; btn.textContent = 'Resolve'; }
   }
 
+  async function broadcastAlert(id, base, btn) {
+    const content = prompt('Broadcast message to related tickets:');
+    if (!content || !content.trim()) return;
+    btn.disabled = true; const original = btn.textContent; btn.textContent = '…';
+    try {
+      const res = await fetch(`${base}/api/alerts/${id}/broadcast/`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({content: content.trim(), visibility: 'external'})
+      });
+      if (res.ok) {
+        btn.textContent = 'Sent';
+        btn.style.background = '#2a8a7e';
+        btn.style.color = '#fff';
+      } else {
+        btn.disabled = false; btn.textContent = original;
+      }
+    } catch {
+      btn.disabled = false; btn.textContent = original;
+    }
+  }
+
   function quickFilterPriority(sev) {
     taPriorityFilter = sev;
     document.querySelectorAll('#ta-priority-chips .meas-btn').forEach(b => {
@@ -1337,9 +1373,151 @@
     loadTicketsAlerts();
   }
 
+  // ── alerts view (resolver-only) ───────────────────────────────────────────
+  function setAlertStatus(el) {
+    document.querySelectorAll('#view-alerts .measurement-group .meas-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    alertStatusFilter = el.dataset.val || '';
+  }
+
+  function setAlertPriority(el) {
+    document.querySelectorAll('#alert-priority-chips .meas-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    alertPriorityFilter = el.dataset.val || '';
+  }
+
+  function clearAlertTime() {
+    document.getElementById('alert-time-from').value = '';
+    document.getElementById('alert-time-to').value = '';
+  }
+
+  async function loadAlertsView() {
+    const base = normalizeBase(document.getElementById('baseUrl').value);
+    if (!base) { alert('Enter a valid Base URL.'); return; }
+    const main = document.getElementById('alerts-main');
+    main.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>Loading…</p></div>';
+    try {
+      const params = new URLSearchParams({ limit: 50 });
+      if (alertStatusFilter) params.set('status', alertStatusFilter);
+      if (alertPriorityFilter) params.set('severity', alertPriorityFilter);
+      const metric = document.getElementById('alertMetric').value;
+      const agent = document.getElementById('alertAgent').value;
+      if (metric) params.set('metric_name', metric);
+      if (agent) params.set('agent_id', agent);
+      const from = document.getElementById('alert-time-from').value;
+      const to   = document.getElementById('alert-time-to').value;
+      if (from) params.set('start', new Date(from).toISOString());
+      if (to)   params.set('end',   new Date(to).toISOString());
+      const res = await fetch(`${base}/api/alerts?${params.toString()}`);
+      const data = await res.json();
+      let alerts = data.items || [];
+      main.innerHTML = '';
+      const hdr = document.createElement('div');
+      hdr.className = 'section-hdr';
+      hdr.innerHTML = `Alerts <span class="count-badge">${alerts.length}</span>`;
+      main.appendChild(hdr);
+      if (!alerts.length) {
+        main.innerHTML += '<div class="empty-state"><div class="icon">✅</div><p>No alerts match the filters.</p></div>';
+        return;
+      }
+      alerts.forEach(a => main.appendChild(buildAlertCard(a, base)));
+    } catch (e) {
+      main.innerHTML = `<div class="empty-state"><p>Error: ${e}</p></div>`;
+    }
+  }
+
   buildDropdown("ms-agents", AVAILABLE_AGENTS, null);
   buildDropdown("ms-metrics", AVAILABLE_METRICS, m => METRIC_LABELS[m] || m);
   buildTaAgentDropdown();
   buildResolverAgentDropdown();
   setRole('user');
   loadState();
+
+  // ── comments modal ────────────────────────────────────────────────────────
+  let commentTicketId = null;
+  let commentBase = null;
+
+  async function openComments(ticketId, base) {
+    commentTicketId = ticketId;
+    commentBase = base;
+    document.getElementById('commentBackdrop').style.display = 'block';
+    document.getElementById('commentTicket').textContent = `Ticket #${ticketId}`;
+    document.getElementById('commentList').innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>Loading comments…</p></div>';
+    document.getElementById('commentStatus').textContent = '';
+    await loadComments();
+  }
+
+  async function loadComments() {
+    if (!commentTicketId || !commentBase) return;
+    try {
+      const res = await fetch(`${commentBase}/api/tickets/${commentTicketId}/comments/`);
+      if (!res.ok) {
+        document.getElementById('commentList').innerHTML = `<div class="empty-state"><p>Error ${res.status}</p></div>`;
+        return;
+      }
+      const data = await res.json();
+      const list = document.createElement('div');
+      list.style.display = 'flex';
+      list.style.flexDirection = 'column';
+      list.style.gap = '8px';
+      (data.comments || []).forEach(c => {
+        const div = document.createElement('div');
+        div.style.border = '1px solid var(--border)';
+        div.style.borderRadius = '10px';
+        div.style.padding = '10px';
+        div.innerHTML = `
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)">
+            <span>${c.author_name || 'Anon'}</span>
+            <span>${fmtTime(c.created_at)}</span>
+          </div>
+          <div style="margin-top:6px;font-size:13px;white-space:pre-wrap">${c.content || ''}</div>
+          <div style="margin-top:4px;font-size:11px;color:var(--muted)">Visibility: ${c.visibility}</div>`;
+        list.appendChild(div);
+      });
+      if (!data.comments || !data.comments.length) {
+        list.innerHTML = '<div class="empty-state"><div class="icon">💬</div><p>No comments yet.</p></div>';
+      }
+      document.getElementById('commentList').innerHTML = '';
+      document.getElementById('commentList').appendChild(list);
+    } catch (e) {
+      document.getElementById('commentList').innerHTML = `<div class="empty-state"><p>Error: ${e}</p></div>`;
+    }
+  }
+
+  async function submitComment() {
+    if (!commentTicketId || !commentBase) return;
+    const content = document.getElementById('commentInput').value.trim();
+    const status = document.getElementById('commentStatus');
+    if (!content) { status.textContent = 'Content required'; status.style.color = '#e8445a'; return; }
+    status.textContent = 'Posting…'; status.style.color = '#6b7280';
+    try {
+      const res = await fetch(`${commentBase}/api/tickets/${commentTicketId}/comments/`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({content})
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        status.textContent = `Error ${res.status}: ${msg}`;
+        status.style.color = '#e8445a';
+        return;
+      }
+      document.getElementById('commentInput').value = '';
+      status.textContent = 'Posted';
+      status.style.color = '#2a8a7e';
+      await loadComments();
+    } catch (e) {
+      status.textContent = `Error: ${e}`;
+      status.style.color = '#e8445a';
+    }
+  }
+
+  function closeCommentModal(evt) {
+    if (evt.target.id !== 'commentBackdrop') return;
+    closeCommentModalDirect();
+  }
+  function closeCommentModalDirect() {
+    document.getElementById('commentBackdrop').style.display = 'none';
+    commentTicketId = null;
+    commentBase = null;
+  }

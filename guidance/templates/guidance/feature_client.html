@@ -11,7 +11,8 @@
   <div class="logo">Tixres <span>Metrics</span></div>
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="switchView('metrics')">📊 Metrics</div>
-    <div class="nav-tab" onclick="switchView('tickets')">🎫 Tickets &amp; Alerts</div>
+    <div class="nav-tab" onclick="switchView('tickets')">🎫 Tickets</div>
+    <div class="nav-tab" onclick="switchView('alerts')">🚨 Alerts</div>
   </div>
 </div>
 
@@ -76,7 +77,7 @@
 </div>
 </div><!-- end view-metrics -->
 
-<!-- TICKETS & ALERTS VIEW -->
+<!-- TICKETS VIEW -->
 <div class="view" id="view-tickets">
   <aside class="ta-sidebar">
     <div>
@@ -160,6 +161,75 @@
   </main>
 </div>
 
+<!-- ALERTS VIEW -->
+<div class="view" id="view-alerts">
+  <aside class="ta-sidebar">
+    <div>
+      <div class="field-label">Status</div>
+      <div class="measurement-group">
+        <div class="meas-btn active" data-val="" onclick="setAlertStatus(this)">All</div>
+        <div class="meas-btn" data-val="OPEN" onclick="setAlertStatus(this)">Open</div>
+        <div class="meas-btn" data-val="ACK" onclick="setAlertStatus(this)">Acked</div>
+        <div class="meas-btn" data-val="CLOSED" onclick="setAlertStatus(this)">Closed</div>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">Priority</div>
+      <div class="chip-row" id="alert-priority-chips">
+        <div class="meas-btn active" style="flex:none;padding:5px 10px;font-size:11px" data-val="" onclick="setAlertPriority(this)">All</div>
+        <div class="meas-btn" style="flex:none;padding:5px 10px;font-size:11px" data-val="P1" onclick="setAlertPriority(this)">P1</div>
+        <div class="meas-btn" style="flex:none;padding:5px 10px;font-size:11px" data-val="P2" onclick="setAlertPriority(this)">P2</div>
+        <div class="meas-btn" style="flex:none;padding:5px 10px;font-size:11px" data-val="P3" onclick="setAlertPriority(this)">P3</div>
+        <div class="meas-btn" style="flex:none;padding:5px 10px;font-size:11px" data-val="P4" onclick="setAlertPriority(this)">P4</div>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">Metric</div>
+      <select id="alertMetric" onchange="saveState()" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);font-size:13px">
+        <option value="">All metrics</option>
+        <option value="cpu_v1.0.0.usage_overall">cpu_v1.0.0.usage_overall</option>
+        <option value="disk_v1.0.0.usage">disk_v1.0.0.usage</option>
+        <option value="memory_v1.0.0.ram">memory_v1.0.0.ram</option>
+        <option value="network_v1.0.0.errors">network_v1.0.0.errors</option>
+      </select>
+    </div>
+    <div>
+      <div class="field-label">Agent</div>
+      <select id="alertAgent" onchange="saveState()" style="width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);font-size:13px">
+        <option value="">All agents</option>
+        <option value="agent_demo_web">agent_demo_web</option>
+        <option value="agent_demo_db">agent_demo_db</option>
+        <option value="agent_demo_cache">agent_demo_cache</option>
+        <option value="agent_demo_search">agent_demo_search</option>
+        <option value="agent_demo_queue">agent_demo_queue</option>
+      </select>
+    </div>
+    <div>
+      <div class="field-label">Time Range</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">From</div>
+          <input type="datetime-local" id="alert-time-from" style="font-size:11px;padding:6px 8px" />
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">To</div>
+          <input type="datetime-local" id="alert-time-to" style="font-size:11px;padding:6px 8px" />
+        </div>
+        <button onclick="clearAlertTime()" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-align:left;padding:0">✕ Clear range</button>
+      </div>
+    </div>
+    <hr class="divider" />
+    <button class="run-btn" onclick="loadAlertsView()">Load Alerts</button>
+    <div class="hint" style="margin-top:6px">Resolver-only. End users will see none.</div>
+  </aside>
+  <main class="ta-main" id="alerts-main">
+    <div class="empty-state">
+      <div class="icon">🚨</div>
+      <p>Load alerts for resolvers.</p>
+    </div>
+  </main>
+</div>
+
 <!-- compare tray -->
 <div class="compare-tray" id="compareTray">
   <div class="tray-chips" id="trayChips"></div>
@@ -199,6 +269,28 @@
     </div>
     <div class="modal-chart-wrap">
       <canvas id="modalCanvas" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- comments modal -->
+<div class="modal-backdrop" id="commentBackdrop" onclick="closeCommentModal(event)">
+  <div class="modal-box" id="commentBox" style="max-width:640px">
+    <div class="modal-header">
+      <div>
+        <div class="m-title">Ticket Comments</div>
+        <div class="m-agent" id="commentTicket"></div>
+      </div>
+      <button class="modal-close" onclick="closeCommentModalDirect()">✕</button>
+    </div>
+    <div id="commentList" style="max-height:320px;overflow:auto;margin-bottom:10px"></div>
+    <div class="form-field">
+      <label style="font-size:12px;color:var(--muted)">Add comment</label>
+      <textarea id="commentInput" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
+        <button class="ping-btn" onclick="submitComment()">Post</button>
+      </div>
+      <div class="ping-status" id="commentStatus"></div>
     </div>
   </div>
 </div>

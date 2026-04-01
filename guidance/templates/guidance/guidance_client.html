@@ -1,0 +1,104 @@
+<!doctype html>
+{% load static %}
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Tixres Guidance Library</title>
+  <link rel="stylesheet" href="{% static 'guidance/guidance-client.css' %}" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo">Tixres <span>Guidance</span></div>
+    <div class="nav-tabs">
+      <div class="nav-tab active">📒 Runbooks</div>
+      <a class="nav-tab" href="{% url 'feature-client-ui' %}">↩ Metrics & Tickets</a>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div>
+        <div class="field-label">Base URL</div>
+        <div class="base-url-row">
+          <input type="text" id="baseUrl" placeholder="{{ default_base_url }}" value="{{ default_base_url }}" onchange="saveState()" />
+          <button class="ping-btn" onclick="pingServer()">Ping</button>
+        </div>
+        <div class="ping-status" id="pingStatus"></div>
+      </div>
+      <hr class="divider" />
+
+      <div>
+        <div class="field-label">Priority</div>
+        <div class="chip-row" id="priorityChips">
+          <div class="chip active" data-val="" onclick="setPriorityFilter(this)">All</div>
+          <div class="chip" data-val="P1" onclick="setPriorityFilter(this)">P1</div>
+          <div class="chip" data-val="P2" onclick="setPriorityFilter(this)">P2</div>
+          <div class="chip" data-val="P3" onclick="setPriorityFilter(this)">P3</div>
+          <div class="chip" data-val="P4" onclick="setPriorityFilter(this)">P4</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="field-label">Metric Name</div>
+        <input type="text" id="metricFilter" placeholder="cpu_v1.0.0.usage_overall" onkeyup="handleKey(event, fetchGuidance)" />
+      </div>
+
+      <div>
+        <div class="field-label">Purpose</div>
+        <input type="text" id="purposeFilter" placeholder="general" onkeyup="handleKey(event, fetchGuidance)" />
+      </div>
+
+      <button class="run-btn" onclick="fetchGuidance()">Load</button>
+      <button class="secondary-btn" onclick="resetFilters()">Clear Filters</button>
+
+      <hr class="divider" />
+
+      <div>
+        <div class="field-label">Add / Update Guidance</div>
+        <div class="form-field">
+          <label>Metric Name*</label>
+          <input type="text" id="formMetric" placeholder="cpu_v1.0.0.usage_overall" />
+        </div>
+        <div class="form-field">
+          <label>Priority*</label>
+          <select id="formPriority">
+            <option value="P1">P1</option>
+            <option value="P2" selected>P2</option>
+            <option value="P3">P3</option>
+            <option value="P4">P4</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Purpose</label>
+          <input type="text" id="formPurpose" placeholder="general" />
+        </div>
+        <div class="form-field">
+          <label>Resolution Steps* <span class="hint">(one per line)</span></label>
+          <textarea id="formSteps" rows="6" placeholder="Check top/htop for runaway processes&#10;Restart offending service if safe"></textarea>
+        </div>
+        <div class="form-field">
+          <label>Resolver Notes</label>
+          <textarea id="formNotes" rows="3" placeholder="Escalate if persists for 10m."></textarea>
+        </div>
+        <button class="run-btn" onclick="submitGuidance()">Save Guidance</button>
+        <div class="ping-status" id="formStatus"></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="section-hdr">
+        Guidance Records
+        <span class="count-badge" id="countBadge">0</span>
+      </div>
+      <div id="guidanceGrid" class="guidance-grid">
+        <div class="empty-state">
+          <div class="icon">📒</div>
+          <p>Load to see runbooks.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="{% static 'guidance/guidance-client.js' %}"></script>
+</body>
+</html>
