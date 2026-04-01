@@ -1,12 +1,13 @@
 from typing import Dict, List, Any
 from agent_auth.agent import MetricsAgent
 
-def standalone_register(server_url: str) -> bool:
+def standalone_register(server_url: str, purpose : str = None) -> bool:
     """Standalone registration function"""
     import platform
     
     agent = MetricsAgent(
         server_url=server_url,
+        purpose = purpose,
         agent_version="1.0.0",
         hostname=platform.node(),
         os_name=platform.system()

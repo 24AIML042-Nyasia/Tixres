@@ -11,8 +11,9 @@ logger = get_logger()
 
 class AgentConfig:
     """Agent configuration"""
-    def __init__(self, server_url: str):
+    def __init__(self, server_url: str, purpose : str = None):
         self.server_url = server_url.rstrip('/')
+        self.purpose = purpose
         self.agent_id: Optional[str] = None
         self.api_key: Optional[str] = None
         self.secret_key: Optional[str] = None
@@ -67,8 +68,8 @@ class AgentConfig:
 class MetricsAgent:
     """Agent client for metrics collection and submission"""
     
-    def __init__(self, server_url: str, agent_version: str, hostname: str, os_name: str):
-        self.config = AgentConfig(server_url)
+    def __init__(self, server_url: str, agent_version: str, hostname: str, os_name: str, purpose : str =None):
+        self.config = AgentConfig(server_url, purpose)
         self.agent_version = agent_version
         self.hostname = hostname
         self.os_name = os_name

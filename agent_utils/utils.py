@@ -3,6 +3,7 @@ import importlib
 import inspect
 import os
 import json
+import logging
 
 import socket
 import platform
@@ -17,8 +18,18 @@ def check_agent_file() -> bool:
 
 def load_modules():
     for _, module_name, _ in pkgutil.iter_modules(modules.__path__):
-        # print(f"{modules.__name__}.{module_name}")
-        module = importlib.import_module(f"{modules.__name__}.{module_name}")
+        try:
+            module = importlib.import_module(f"{modules.__name__}.{module_name}")
+        except ModuleNotFoundError as exc:
+            logging.warning(
+                "Skipping module %s because dependency is missing: %s",
+                module_name,
+                getattr(exc, "name", exc),
+            )
+            continue
+        except Exception as exc:
+            logging.warning("Skipping module %s due to import error: %s", module_name, exc)
+            continue
 
         for _, obj in inspect.getmembers(module, inspect.isclass):
             if issubclass(obj, BaseModule) and obj is not BaseModule:

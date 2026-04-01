@@ -123,6 +123,8 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="IT Metrics Agent Client")
     parser.add_argument("--server", required=True, help="Server URL (e.g., http://localhost:8000)")
+    parser.add_argument("--purpose",  help="Purpose of the PC agent is running on",
+                        default=None)
     parser.add_argument("--action", choices=['register', 'login', 'run', 'sync'], 
                        default='run', help="Action to perform")
     parser.add_argument("--sync-interval", type=int, default=60, 

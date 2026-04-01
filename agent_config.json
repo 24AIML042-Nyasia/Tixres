@@ -1,7 +1,7 @@
 {
-  "agent_id": "agent_iUfWKzOefCmC4yvARGOZLA",
-  "api_key": "64z2qn7zpbSQ7th3kbJMPvMzCU4BlxyXit68EGGqL4U",
-  "secret_key": "kKnm4TirNuBkCBloozJjLAIUWBgexUhQkI8IWlme_31wig59s9p09UHNwYPp7zOs6o_FrrUdc9i29co5s_mG-g",
+  "agent_id": "agent_VAjl4CEfPB1q10WnNNO_2w",
+  "api_key": "Ho2aqQZhTzRYTE3oL5o4dHP9PX13dQMGAqwKcTQReTg",
+  "secret_key": "zfbQB0ZffSM1kR3L_Hat6FJ_YHf1SXFS2fYgiQYif_FPnR9EPO5SUQWUFXCdTMyXxdpq02Uzv5LTcx_XJIKPRw",
   "template": {
     "modules": [
       "cpu_v1.0.0",
@@ -13,9 +13,26 @@
       "temperature_v1.0.0"
     ],
     "metrics": {
+      "cpu_v1.0.0.usage_overall": 5,
+      "cpu_v1.0.0.usage_per_core": 10,
+      "cpu_v1.0.0.load_average": 15,
+      "cpu_v1.0.0.frequency": 10,
       "memory_v1.0.0.ram": 5,
       "memory_v1.0.0.swap": 10,
-      "memory_v1.0.0.cached_vs_free": 15
+      "memory_v1.0.0.cached_vs_free": 15,
+      "disk_v1.0.0.usage": 60,
+      "disk_v1.0.0.io": 5,
+      "system_v1.0.0.uptime": 60,
+      "system_v1.0.0.users": 30,
+      "system_v1.0.0.process_count": 10,
+      "process_v1.0.0.top_cpu": 10,
+      "process_v1.0.0.top_memory": 15,
+      "process_v1.0.0.zombie_count": 30,
+      "process_v1.0.0.total_threads": 15,
+      "network_v1.0.0.io": 5,
+      "network_v1.0.0.connections": 10,
+      "network_v1.0.0.errors": 30,
+      "temperature_v1.0.0.battery": 60
     }
   }
 }
