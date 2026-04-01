@@ -1,0 +1,23 @@
+This folder holds structural definitions, patterns, and shared utilities for the server API.
+
+Files and their contents:
+
+1. fastapi.py
+- Initializes the main `FastAPI` instance (`app`) configured with generic setup parameters, including basic CORS settings. Routers included: agent registration/login, metrics ingestion, alerts, guidance, rollups, dashboard/user/resolver snapshots. Also exposes `/demo/api-test`, a simple HTML page that signs requests client-side and hits the core API endpoints (dashboard/user/resolver/tickets/rollups).
+
+2. logger.py
+Functions:
+- get_logger(): Configures and returns a thread-safe global Python logger. It sets up standard `StreamHandler` behavior formatted with timestamps, module names, and message content to `sys.stdout`.
+
+3. models.py
+Classes:
+- Pydantic BaseModel definitions specifically structuring expected JSON bodies across various endpoints. Contains:
+  - AgentRegisterRequest, AgentRegisterResponse
+  - AgentLoginRequest, AgentLoginResponse
+  - PingRequest
+  - MetricData, MetricBatchRequest
+  - AgentInfo
+
+4. regex.py
+Functions:
+- check_metric_pattern(key): Parses a complex raw metric key into `Metric`, `Version`, and `Unit` dictionaries using `METRIC_REGEX_PATTERN` from global settings.

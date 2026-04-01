@@ -1,0 +1,14 @@
+BUG: Zoom modal shows stale chart from previous card when current card has no data
+-------------------------------------------------------------------------------------
+File:     docs/feature-client.html
+Function: openModal()
+Status:   FIXED
+
+Description:
+When clicking to zoom into a metric card that has no data (empty points array),
+the modal canvas retained pixel content from the last chart drawn on it, so the
+previous card's graph was visible even though the current card had no data.
+
+Fix applied:
+Added canvas.width = 0 before the requestAnimationFrame block in openModal().
+This forces the browser to discard the canvas bitmap so stale pixels don't persist.

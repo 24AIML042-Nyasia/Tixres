@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+
+demo_agent.py
+init_db.py
+test_system.py
+tables.py
+test.py
+debug.py
+
+
+# Celery beat schedule
+celerybeat-schedule*
+*.bak
+*.dir
+*.dat
+
+
+# *.env
+
+.venv/
+venv/
+influxdb-data/
+
+*.db
+
+.coverage
+server_db/demo_seed.py
+.pytest_cache/
