@@ -1,0 +1,17 @@
+This folder acts as the entrypoint for all background tasks and scheduling, utilizing Celery and Redis.
+
+Files and their contents:
+
+1. app.py
+- Initializes the Celery application (`myapp`) with a Redis backend/broker on localhost.
+- Defines a `beat_schedule` to systematically run rollup algorithms and anomaly detection cron jobs:
+  - one_min_roll_up: Every minute.
+  - ten_min_roll_up: Every 10 minutes.
+  - one_hour_roll_up: Every hour.
+  - run_zscore_anomaly: Every 10 minutes.
+
+2. tasks.py
+Functions:
+- one_min_rollup(), ten_min_rollup(), one_hour_rollup(): Celery task wrappers that initialize `InfluxDBRollup` and manage asyncio execution of rollup components.
+- run_zscore_for_agent(agent_id, metrics): Instantiates the `ZScoreAnomaly` detector and delegates execution with retry properties (max_retries=3) explicitly.
+- run_anomaly_cycle(): The primary anomaly distribution orchestrator. It fetches the required agents and metric mappings, forms a celery group of `run_zscore_for_agent` jobs, and enqueues them for parallel background asynchronous processing.

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Rollup API Caller</title>
+  <style>
+    :root { color-scheme: light; font-family: "Inter", system-ui, -apple-system, sans-serif; }
+    body { margin: 24px; background: #f7f8fb; color: #111827; }
+    h1 { margin-top: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
+    .card h3 { margin: 0 0 8px; font-size: 15px; }
+    label { display: block; font-size: 12px; color: #4b5563; margin-top: 8px; }
+    input, select, textarea { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; border-radius: 6px; border: 1px solid #d1d5db; font-size: 13px; }
+    textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; min-height: 120px; }
+    button { margin-top: 10px; padding: 8px 12px; border: none; border-radius: 6px; background: #2563eb; color: #fff; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #111827; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    pre { background: #0b1021; color: #c8e1ff; padding: 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+    .row { display: flex; gap: 8px; }
+    .row > div { flex: 1; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #e5e7eb; font-size: 11px; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Rollup API Caller</h1>
+  <p class="muted">Exercise <code>/api/rollups/{agent_id}</code> with all measurement and metric_name variations. No auth headers are sent.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Connection & Auth</h3>
+      <label>Base URL (required; include protocol)<input id="baseUrl" placeholder="http://localhost:8000" /></label>
+      <label>Agent ID<input id="agentId" value="agent_demo_web" /></label>
+    </div>
+
+    <div class="card">
+      <h3>Rollup Options</h3>
+      <label>Measurements (choose one for single call)</label>
+      <select id="measurement">
+        <option value="1m">1m</option>
+        <option value="10m">10m</option>
+        <option value="1h">1h</option>
+      </select>
+      <label>Metric Name (optional, must match regex)</label>
+      <input id="metricName" placeholder="cpu_v1.0.0.usage_overall" />
+      <label>Start Minutes (single call)</label>
+      <input id="startMinutes" type="number" min="1" max="4320" value="240" />
+    </div>
+
+    <div class="card">
+      <h3>Batch Variations</h3>
+      <p class="muted">Provide comma-separated values to auto-run multiple combinations.</p>
+      <label>Measurements list<input id="batchMeasurements" value="1m,10m,1h" /></label>
+      <label>Metric names list (leave empty for none)<input id="batchMetricNames" value="cpu_v1.0.0.usage_overall, ,memory_v1.0.0.ram" /></label>
+      <label>Start minutes list<input id="batchStartMinutes" value="60,240,1440" /></label>
+      <button onclick="runSingle()">Call Single</button>
+      <button class="secondary" onclick="runBatch()">Call All Combinations</button>
+    </div>
+  </div>
+
+  <h2>Responses</h2>
+  <div id="results" class="grid"></div>
+
+  <script>
+    const qs = (id) => document.getElementById(id).value;
+
+    function normalizeBase(raw) {
+      if (!raw || !raw.trim()) return null;
+      let url = raw.trim();
+      if (!/^https?:\/\//i.test(url)) {
+        url = "http://" + url;
+      }
+      if (url.endsWith("/")) url = url.slice(0, -1);
+      try {
+        const parsed = new URL(url);
+        return parsed.origin; // drop accidental paths
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function addResultCard(title) {
+      const container = document.getElementById("results");
+      const card = document.createElement("div");
+      card.className = "card";
+      const h3 = document.createElement("h3");
+      h3.textContent = title;
+      const pre = document.createElement("pre");
+      pre.textContent = "Pending...";
+      card.appendChild(h3);
+      card.appendChild(pre);
+      container.appendChild(card);
+      return pre;
+    }
+
+    async function callRollup(agentId, measurement, metricName, startMinutes, preEl) {
+      preEl.textContent = "Loading...";
+      const base = normalizeBase(qs("baseUrl"));
+      if (!base) {
+        preEl.textContent = "Error: Enter a valid Base URL (e.g., http://localhost:8000)";
+        return;
+      }
+
+      const params = new URLSearchParams();
+      params.set("measurement", measurement);
+      if (metricName && metricName.trim()) params.set("metric_name", metricName.trim());
+      params.set("start_minutes", startMinutes || "240");
+
+      try {
+        const res = await fetch(`${base}/api/rollups/${agentId}?${params.toString()}`);
+        const text = await res.text();
+        preEl.textContent = `${res.status} ${res.statusText}\n` + text;
+      } catch (err) {
+        preEl.textContent = "Error: " + err;
+      }
+    }
+
+    function runSingle() {
+      document.getElementById("results").innerHTML = "";
+      const pre = addResultCard(`Single: ${qs("measurement")} | metric=${qs("metricName")||"∅"} | start=${qs("startMinutes")}`);
+      callRollup(qs("agentId") || "agent_demo_web", qs("measurement"), qs("metricName"), qs("startMinutes"), pre);
+    }
+
+    function parseList(val) {
+      return (val || "")
+        .split(",")
+        .map(v => v.trim())
+        .filter(v => v.length > 0);
+    }
+
+    function runBatch() {
+      document.getElementById("results").innerHTML = "";
+      const measurements = parseList(qs("batchMeasurements"));
+      const metrics = parseList(qs("batchMetricNames"));
+      if (metrics.length === 0) metrics.push(""); // include no-metric variation
+      const starts = parseList(qs("batchStartMinutes")).map(v => v || "240");
+      const agentId = qs("agentId") || "agent_demo_web";
+
+      for (const m of measurements) {
+        for (const metric of metrics) {
+          for (const s of starts) {
+            const title = `${m} | metric=${metric || "∅"} | start=${s}`;
+            const pre = addResultCard(title);
+            callRollup(agentId, m, metric, s, pre);
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>

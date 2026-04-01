@@ -1,0 +1,1 @@
+WORKFLOW = ['OPEN', 'ACK', 'Resolved','CLOSED']

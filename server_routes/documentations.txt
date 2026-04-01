@@ -1,0 +1,21 @@
+This folder handles the API endpoints exposed by the backend for agents to communicate and for the UI to retrieve processed logic.
+
+Files and their contents:
+
+1. agent_routes.py
+Functions:
+- register_agent(request): Registers an agent, provisions API credentials, saves agent static data to the relational DB, and returns the credentials.
+- login_agent(request, agent_id): Refreshes the `heartbeat` timestamp for a given agent and responds with basic agent information.
+- ping_agent(request, agent_id): Fast background endpoint for agents to periodically tell the server they are online by updating `heartbeat`.
+
+2. metrics_routes.py
+Functions:
+- submit_metrics(request, agent_id): Validates incoming payload metrics, separates numeric payloads from JSON payloads, parses temporal data, and commits them to the PostgreSQL database for ingestion. Also updates the agent's heartbeat implicitly.
+
+3. ui_dashboard_routes.py
+Functions:
+- build_dashboard_payload(db, agent_id): Collects the absolute latest data points from PostgreSQL for different components (CPU, memory, disk, network, process limits) by descending timestamps. It filters out system idle anomalies and forms a cohesive dashboard JSON structure for the UI.
+
+4. rollup_routes.py
+Functions:
+- get_rollup_series(agent_id, measurement, metric_name, start_minutes): Returns aggregated rollup rows for 1m/10m/1h buckets. Prefers InfluxDB rollup measurements when configured; otherwise it aggregates `metric_numeric` rows in SQL (SQLite/Postgres) to the requested bucket width and returns count/min/max/sum/avg per bucket.

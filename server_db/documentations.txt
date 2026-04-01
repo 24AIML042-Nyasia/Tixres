@@ -1,0 +1,36 @@
+This folder manages PostgreSQL connection properties, model definitions, migrations, and standard maintenance operations.
+
+Files and their contents:
+
+1. connection.py
+Classes & Functions:
+- engine: Sets up the SQLAlchemy Engine with `QueuePool`.
+- SessionLocal: Acts as a bound sessionmaker factory instance.
+- get_db(): A context manager / generator function that safely yields database sessions and closes them.
+
+2. models.py
+Classes:
+- AgentCredentials: SQLAlchemy mapping for tracking authentication API and Secret keys.
+- Agent: SQLAlchemy mapping representing connected agents (OS, version, heartbeat).
+- Purpose: SQLAlchemy mapping describing an agent purpose with optional JSON template; linked to agents via `purpose_id`.
+- MetricNumeric: SQLAlchemy mapping for storing incoming raw numeric metrics for fast ingestion, linked via ForeignKey to `agents.agent_id`.
+- MetricJson: SQLAlchemy mapping for storing structured or complex JSON metric bodies.
+
+3. migration.py
+Functions:
+- run_migrations(): Creates all defined database tables and schemas stored in metadata.
+
+4. rollups.py
+Functions:
+- retention_policy(): Executes raw SQL queries cleaning up the default raw metrics from `metric_numeric` ensuring they don't surpass standard retention (7 days). Outward rollups limits are currently commented out.
+
+5. purpose.py
+Functions:
+- create_purpose(): Idempotently create or fetch a purpose row (defaults to "general").
+- read_purpose(): Read a purpose row by id.
+- update_purpose_template(): Update only the template field for a purpose row.
+- delete_purpose(): Delete a purpose row by id.
+
+6. demo_seed.py
+Functions:
+- run()/main(): Legacy shim that delegates to the `demo_seed` package, seeding demo agents, metrics, tickets, alerts, guidance, anomaly state, and rollup cursors. Preferred entrypoint: `python -m demo_seed` with optional `SKIP_INFLUX` to skip Influx writes.
