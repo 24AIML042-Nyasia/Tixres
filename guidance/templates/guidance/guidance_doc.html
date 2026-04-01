@@ -1,0 +1,65 @@
+<!doctype html>
+{% load static %}
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Tixres Guidance</title>
+  <link rel="stylesheet" href="{% static 'guidance/guidance-client.css' %}" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo">Tixres <span>Guidance</span></div>
+    <div class="nav-tabs">
+      <a class="nav-tab" href="{% url 'guidance-ui' %}">← Back to Library</a>
+    </div>
+  </div>
+
+  <div class="layout" style="grid-template-columns: 1fr;">
+    <main class="main" id="docMain">
+      <div class="section-hdr">
+        Guidance Detail
+      </div>
+      <div class="g-card" id="docCard">
+        <div class="title" id="docTitle">Loading…</div>
+        <div class="meta" id="docMeta"></div>
+        <div class="notes" id="docSummary"></div>
+        <div style="white-space:pre-wrap;font-size:13px;color:#0f172a" id="docBody"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const metric = params.get("metric_name");
+    const priority = params.get("priority");
+    const purpose = params.get("purpose") || "general";
+    const baseUrl = "{{ default_base_url }}";
+
+    async function loadDoc() {
+      if (!metric || !priority) {
+        document.getElementById('docTitle').textContent = 'Missing metric_name or priority';
+        return;
+      }
+      document.getElementById('docTitle').textContent = metric;
+      try {
+        const res = await fetch(`${baseUrl}/api/guidance/by-key?metric_name=${encodeURIComponent(metric)}&priority=${encodeURIComponent(priority)}&purpose=${encodeURIComponent(purpose)}`);
+        const data = await res.json();
+        if (!res.ok) {
+          document.getElementById('docTitle').textContent = data.error || `Error ${res.status}`;
+          return;
+        }
+        document.getElementById('docMeta').innerHTML = `
+          <span class="badge badge-${data.priority}">Priority ${data.priority}</span>
+          <span class="meta-pill">${data.purpose}</span>
+          <span class="meta-pill">Source: ${data.source || 'resolver'}</span>
+          <span class="meta-pill">Updated ${new Date(data.last_updated).toLocaleString()}</span>`;
+        document.getElementById('docSummary').textContent = data.summary || 'No summary provided.';
+        document.getElementById('docBody').textContent = data.document || 'No document provided.';
+      } catch (e) {
+        document.getElementById('docTitle').textContent = `Error: ${e}`;
+      }
+    }
+    loadDoc();
+  </script>
+</body>
+</html>

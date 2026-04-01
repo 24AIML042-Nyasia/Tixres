@@ -36,32 +36,37 @@ class GuidanceService:
         created=False → existing record was updated.
 
         The natural key (metric_name, priority, purpose) is immutable once created;
-        only resolution_steps, resolver_notes, and resolution_meta are written on update.
+        only document, summary, source, and resolution_meta are written on update.
         """
-        metric_name      = payload["metric_name"]
-        priority         = payload.get("priority", Priority.P4)
-        purpose          = payload.get("purpose", "general")
-        resolution_steps = payload.get("resolution_steps", [])
-        resolver_notes   = payload.get("resolver_notes")
-        resolution_meta  = payload.get("resolution_meta") or {}
+        metric_name = payload["metric_name"]
+        priority    = payload.get("priority", Priority.P4)
+        purpose     = payload.get("purpose", "general")
+        document    = (payload.get("document") or "").strip()
+        summary     = payload.get("summary")
+        source      = payload.get("source") or "resolver"
+        resolution_meta = payload.get("resolution_meta") or {}
+
+        if not document:
+            raise ValueError("document is required")
 
         obj, created = Guidance.objects.get_or_create(
             metric_name = metric_name,
             priority    = priority,
             purpose     = purpose,
             defaults={
-                "resolution_steps": resolution_steps,
-                "resolver_notes":   resolver_notes,
-                "resolution_meta":  resolution_meta,
+                "document":        document,
+                "summary":         summary,
+                "source":          source,
+                "resolution_meta": resolution_meta,
             },
         )
 
         if not created:
-            # Update mutable fields
-            obj.resolution_steps = resolution_steps
-            obj.resolver_notes   = resolver_notes
-            obj.resolution_meta  = resolution_meta
-            obj.save(update_fields=["resolution_steps", "resolver_notes", "resolution_meta", "last_updated"])
+            obj.document        = document
+            obj.summary         = summary
+            obj.source          = source
+            obj.resolution_meta = resolution_meta
+            obj.save(update_fields=["document", "summary", "source", "resolution_meta", "last_updated"])
 
         return obj, created
 
@@ -123,7 +128,7 @@ class GuidanceService:
     @staticmethod
     def update_by_id(guidance_id: int, payload: dict) -> Guidance:
         """
-        Patch resolution_steps / resolver_notes / resolution_meta by primary key.
+        Patch document / summary / source / resolution_meta by primary key.
         Only fields explicitly set in the payload are applied (PATCH semantics).
         """
         try:
@@ -131,7 +136,7 @@ class GuidanceService:
         except Guidance.DoesNotExist:
             raise GuidanceNotFoundError(f"id={guidance_id}")
 
-        mutable = ["resolution_steps", "resolver_notes", "resolution_meta"]
+        mutable = ["document", "summary", "source", "resolution_meta"]
         updated_fields = []
         for field in mutable:
             if field in payload and payload[field] is not None:
@@ -165,10 +170,10 @@ class GuidanceService:
     @staticmethod
     def get_resolution_steps(
         metric_name: str, priority: str, purpose: str = "general"
-    ) -> list[dict]:
-        """Return only the resolution_steps for a natural key (lightweight triage lookup)."""
+    ) -> str:
+        """Return the document for a natural key (lightweight triage lookup)."""
         obj = GuidanceService.get_by_natural_key(metric_name, priority, purpose)
-        return obj.resolution_steps or []
+        return obj.document or ""
 
     @staticmethod
     def summarize_by_priority() -> dict[str, int]:

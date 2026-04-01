@@ -74,38 +74,33 @@ class Command(BaseCommand):
                 "metric_name": "cpu_v1.0.0.usage_overall",
                 "priority": "P1",
                 "purpose": "general",
-                "resolution_steps": [
-                    {"step": 1, "action": "Check top/htop for runaway processes."},
-                    {"step": 2, "action": "Restart offending service if safe; otherwise scale out."},
-                ],
-                "resolver_notes": "Escalate to infra if >95% for 10m.",
+                "summary": "CPU hot on web tier; identify heavy processes and scale out if needed.",
+                "document": "1) Check top/htop for runaway processes.\n2) Restart offending service if safe; otherwise scale out.\n3) If persists >95% for 10m, escalate to infra.",
+                "source": "resolver",
             },
             {
                 "metric_name": "disk_v1.0.0.usage",
                 "priority": "P2",
                 "purpose": "database",
-                "resolution_steps": [
-                    {"step": 1, "action": "Inspect largest directories with du -sh /*."},
-                    {"step": 2, "action": "Purge old WAL/backups; consider adding space."},
-                ],
+                "summary": "DB disk creeping up; clear WAL/backups and reclaim space.",
+                "document": "Check du -sh /* for large dirs.\nPurge old WAL/backups; rotate logs.\nConsider adding disk or moving cold data.",
+                "source": "resolver",
             },
             {
                 "metric_name": "memory_v1.0.0.ram",
                 "priority": "P2",
                 "purpose": "general",
-                "resolution_steps": [
-                    {"step": 1, "action": "Capture ps aux --sort=-%mem head -n 5."},
-                    {"step": 2, "action": "Restart leaky service; add swap as stopgap."},
-                ],
+                "summary": "Memory pressure with swap activity; find leaks and restart.",
+                "document": "Capture top 5 mem processes: ps aux --sort=-%mem head -n 5.\nRestart leaky service; add swap as stopgap.\nPlan memory right-sizing.",
+                "source": "resolver",
             },
             {
                 "metric_name": "network_v1.0.0.errors",
                 "priority": "P1",
                 "purpose": "search",
-                "resolution_steps": [
-                    {"step": 1, "action": "Check interface error counters (ethtool -S)."},
-                    {"step": 2, "action": "Flip traffic to healthy node; investigate NIC/cable."},
-                ],
+                "summary": "NIC errors on search nodes; fail over and inspect hardware.",
+                "document": "Check interface error counters (ethtool -S).\nFlip traffic to healthy node; investigate NIC/cable/switch port.\nCapture dmesg for driver issues.",
+                "source": "resolver",
             },
         ]
         for payload in guidance_payloads:

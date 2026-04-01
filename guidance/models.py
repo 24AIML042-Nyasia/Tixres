@@ -22,10 +22,10 @@ class Guidance(models.Model):
     purpose          = models.CharField(max_length=100, default="general", db_index=True)
     priority         = models.CharField(max_length=5, choices=Priority.choices, default=Priority.P4, db_index=True)
 
-    # [{\"step\": 1, \"action\": \"...\"}]
-    resolution_steps = models.JSONField(default=list)
-
-    resolver_notes   = models.TextField(null=True, blank=True)
+    # Document-style runbook content
+    document         = models.TextField(default="")
+    summary          = models.TextField(null=True, blank=True)
+    source           = models.CharField(max_length=50, default="resolver")
 
     # {\"tags\": [], \"sla_minutes\": 60}
     resolution_meta  = models.JSONField(null=True, blank=True, default=dict)

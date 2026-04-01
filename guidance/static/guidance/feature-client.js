@@ -1343,7 +1343,7 @@
     try {
       const res = await fetch(`${base}/api/alerts/${id}/broadcast/`, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: {'Content-Type':'application/json', ...authHeaders()},
         body: JSON.stringify({content: content.trim(), visibility: 'external'})
       });
       if (res.ok) {
@@ -1450,7 +1450,9 @@
   async function loadComments() {
     if (!commentTicketId || !commentBase) return;
     try {
-      const res = await fetch(`${commentBase}/api/tickets/${commentTicketId}/comments/`);
+      const res = await fetch(`${commentBase}/api/tickets/${commentTicketId}/comments/`, {
+        headers: authHeaders()
+      });
       if (!res.ok) {
         document.getElementById('commentList').innerHTML = `<div class="empty-state"><p>Error ${res.status}</p></div>`;
         return;
@@ -1493,7 +1495,7 @@
     try {
       const res = await fetch(`${commentBase}/api/tickets/${commentTicketId}/comments/`, {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        headers: {'Content-Type':'application/json', ...authHeaders()},
         body: JSON.stringify({content})
       });
       if (!res.ok) {
@@ -1520,4 +1522,8 @@
     document.getElementById('commentBackdrop').style.display = 'none';
     commentTicketId = null;
     commentBase = null;
+  }
+  function authHeaders() {
+    const token = localStorage.getItem('authToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }

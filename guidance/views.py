@@ -23,8 +23,9 @@ def _serialize(obj: Guidance) -> dict:
         "metric_name":      obj.metric_name,
         "purpose":          obj.purpose,
         "priority":         obj.priority,
-        "resolution_steps": obj.resolution_steps or [],
-        "resolver_notes":   obj.resolver_notes,
+        "document":         obj.document,
+        "summary":          obj.summary,
+        "source":           obj.source,
         "resolution_meta":  obj.resolution_meta,
         "attachments":      AttachmentService.serialize_many(getattr(obj, "attachments").all()),
         "last_updated":     obj.last_updated.isoformat(),
@@ -54,8 +55,8 @@ def guidance_list_or_upsert(request):
         attachments_payload = data.get("attachments", None)
         if not data.get("metric_name"):
             return JsonResponse({"error": "metric_name is required"}, status=400)
-        if not data.get("resolution_steps"):
-            return JsonResponse({"error": "resolution_steps must be a non-empty array"}, status=400)
+        if not (data.get("document") or "").strip():
+            return JsonResponse({"error": "document is required"}, status=400)
 
         try:
             with transaction.atomic():
@@ -126,7 +127,7 @@ def guidance_by_key(request):
 
 @require_http_methods(["GET"])
 def guidance_by_key_steps(request):
-    """Return only resolution_steps for lightweight agent triage."""
+    """Return the document for lightweight agent triage."""
     metric_name = request.GET.get("metric_name")
     priority    = request.GET.get("priority") or request.GET.get("severity")
     purpose     = request.GET.get("purpose", "general")
@@ -142,7 +143,7 @@ def guidance_by_key_steps(request):
     except GuidanceNotFoundError as exc:
         return JsonResponse({"error": str(exc)}, status=404)
 
-    return JsonResponse({"steps": steps})
+    return JsonResponse({"document": steps})
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,83 @@
+<!doctype html>
+{% load static %}
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Tixres Auth</title>
+  <link rel="stylesheet" href="{% static 'guidance/auth-client.css' %}" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo">Tixres <span>Auth</span></div>
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-tab="login" onclick="switchTab('login')">🔐 Login</div>
+      <div class="nav-tab" data-tab="register" onclick="switchTab('register')">🆕 Register</div>
+      <div class="nav-tab" data-tab="admin" onclick="switchTab('admin')">🛠 Admin Panel</div>
+      <a class="nav-tab" href="{% url 'feature-client-ui' %}">↩ Metrics</a>
+    </div>
+    <div class="user-chip" id="userChip">Not signed in</div>
+  </div>
+
+  <div class="layout">
+    <div class="card" id="loginCard">
+      <h2>Login</h2>
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="you@example.com" />
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" />
+      <button class="primary" onclick="login()">Sign In</button>
+      <div class="hint">Issues? Admin can issue tokens via CLI or /api/dev-auth/token.</div>
+      <div class="status" id="loginStatus"></div>
+    </div>
+
+    <div class="card hidden" id="registerCard">
+      <h2>Register (end users)</h2>
+      <label>Email</label>
+      <input type="email" id="regEmail" placeholder="agent@example.com" />
+      <label>Name</label>
+      <input type="text" id="regName" placeholder="Jane Doe" />
+      <label>Password</label>
+      <input type="password" id="regPassword" placeholder="••••••••" />
+      <label>Role</label>
+      <select id="regRole">
+        <option value="end_user" selected>End User</option>
+        <option value="resolver" disabled>Resolver (admin creates)</option>
+        <option value="admin" disabled>Admin (CLI only)</option>
+      </select>
+      <button class="primary" onclick="register()">Create Account</button>
+      <div class="hint">Resolver & admin creation is restricted; use Admin Panel or CLI.</div>
+      <div class="status" id="regStatus"></div>
+    </div>
+
+    <div class="card hidden" id="adminCard">
+      <div class="card-header">
+        <h2>Admin Panel</h2>
+        <button class="ghost" onclick="refreshUsers()">↻ Refresh</button>
+      </div>
+      <div class="admin-actions">
+        <div>
+          <label>User ID / Email</label>
+          <input type="text" id="promoteUserId" placeholder="user_id or email" />
+          <button class="primary" onclick="promoteResolver()">Make Resolver</button>
+          <div class="hint">Admin-only. Uses PATCH /api/auth/users/&lt;id&gt; role=resolver.</div>
+        </div>
+        <div>
+          <label>Skill for Resolver</label>
+          <input type="text" id="skillName" placeholder="cpu" />
+          <button class="ghost" onclick="addSkill()">Add Skill</button>
+          <button class="ghost" onclick="removeSkill()">Remove Skill</button>
+        </div>
+      </div>
+      <div class="status" id="adminStatus"></div>
+      <div id="userTable" class="table"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="ghost" onclick="copyToken()">Copy Token</button>
+    <button class="ghost" onclick="logout()">Sign Out</button>
+  </div>
+
+  <script src="{% static 'guidance/auth-client.js' %}"></script>
+</body>
+</html>

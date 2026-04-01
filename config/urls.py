@@ -8,6 +8,8 @@ from config import views as config_views
 urlpatterns = [
     path('demo/ui/',       config_views.feature_client_ui, name='feature-client-ui'),
     path('demo/guidance/', config_views.guidance_ui,       name='guidance-ui'),
+    path('demo/guidance/doc/', config_views.guidance_doc,  name='guidance-doc'),
+    path('demo/auth/',     config_views.auth_ui,           name='auth-ui'),
     path('admin/',        admin.site.urls),
     path('api/dev-auth/',   include('dev_auth.urls')),
     path('api/auth/',       include('auth_core.urls')),

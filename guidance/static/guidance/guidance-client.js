@@ -91,19 +91,20 @@ function renderGuidance(items) {
   items.forEach(item => {
     const card = document.createElement("div");
     card.className = "g-card";
-    const steps = (item.resolution_steps || []).map(s => `<li>${s.action || s}</li>`).join("");
-    const notes = item.resolver_notes ? `<div class="notes">${item.resolver_notes}</div>` : "";
     const meta = `
       <span class="badge badge-${item.priority}">Priority ${item.priority}</span>
       <span class="meta-pill">${item.purpose}</span>
       <span class="meta-pill">${item.metric_name}</span>
+      <span class="meta-pill">Source: ${item.source || 'resolver'}</span>
       <span class="meta-pill">Updated ${fmtTime(item.last_updated)}</span>`;
 
     card.innerHTML = `
       <div class="title">${item.metric_name}</div>
       <div class="meta">${meta}</div>
-      <ol class="steps">${steps}</ol>
-      ${notes}
+      <div class="notes">${item.summary || 'No summary provided.'}</div>
+      <div style="display:flex;justify-content:flex-end">
+        <a class="ping-btn" style="padding:6px 10px;font-size:12px;text-decoration:none" href="/demo/guidance/doc/?metric_name=${encodeURIComponent(item.metric_name)}&priority=${encodeURIComponent(item.priority)}&purpose=${encodeURIComponent(item.purpose)}">View</a>
+      </div>
     `;
     grid.appendChild(card);
   });
@@ -125,14 +126,12 @@ async function submitGuidance() {
   const metric = document.getElementById("formMetric").value.trim();
   const priority = document.getElementById("formPriority").value;
   const purpose = document.getElementById("formPurpose").value.trim() || "general";
-  const stepsRaw = document.getElementById("formSteps").value;
-  const notes = document.getElementById("formNotes").value.trim();
+  const documentText = document.getElementById("formDocument").value;
+  const summary = document.getElementById("formSummary").value.trim();
   const status = document.getElementById("formStatus");
 
-  const steps = stepsRaw.split(/\n+/).map(s => s.trim()).filter(Boolean).map((action, idx) => ({ step: idx + 1, action }));
-
-  if (!metric || !steps.length) {
-    status.textContent = "Metric and at least one step are required.";
+  if (!metric || !documentText.trim()) {
+    status.textContent = "Metric and document are required.";
     status.style.color = "#e8445a";
     return;
   }
@@ -148,8 +147,8 @@ async function submitGuidance() {
         metric_name: metric,
         priority,
         purpose,
-        resolution_steps: steps,
-        resolver_notes: notes || null,
+        document: documentText,
+        summary: summary || null,
       }),
     });
     if (!res.ok) {

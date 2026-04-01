@@ -15,3 +15,19 @@ def guidance_ui(request):
     """
     default_base = request.build_absolute_uri("/").rstrip("/")
     return render(request, "guidance/guidance_client.html", {"default_base_url": default_base})
+
+
+def auth_ui(request):
+    """
+    Auth UI (login/register/admin) for demo/dev environments.
+    """
+    default_base = request.build_absolute_uri("/").rstrip("/")
+    return render(request, "guidance/auth_client.html", {"default_base_url": default_base})
+
+
+def guidance_doc(request):
+    """
+    Render guidance document detail page (client fetches by query params).
+    """
+    default_base = request.build_absolute_uri("/").rstrip("/")
+    return render(request, "guidance/guidance_doc.html", {"default_base_url": default_base})

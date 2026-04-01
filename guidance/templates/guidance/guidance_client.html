@@ -73,12 +73,12 @@
           <input type="text" id="formPurpose" placeholder="general" />
         </div>
         <div class="form-field">
-          <label>Resolution Steps* <span class="hint">(one per line)</span></label>
-          <textarea id="formSteps" rows="6" placeholder="Check top/htop for runaway processes&#10;Restart offending service if safe"></textarea>
+          <label>Summary</label>
+          <textarea id="formSummary" rows="3" placeholder="One-paragraph overview"></textarea>
         </div>
         <div class="form-field">
-          <label>Resolver Notes</label>
-          <textarea id="formNotes" rows="3" placeholder="Escalate if persists for 10m."></textarea>
+          <label>Document* <span class="hint">(full runbook markdown/text)</span></label>
+          <textarea id="formDocument" rows="10" placeholder="Detailed runbook..."></textarea>
         </div>
         <button class="run-btn" onclick="submitGuidance()">Save Guidance</button>
         <div class="ping-status" id="formStatus"></div>
