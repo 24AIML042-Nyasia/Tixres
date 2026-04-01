@@ -1,0 +1,208 @@
+<!doctype html>
+{% load static %}
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Tixres Metrics Explorer</title>
+  <link rel="stylesheet" href="{% static 'guidance/feature-client.css' %}" />
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">Tixres <span>Metrics</span></div>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchView('metrics')">📊 Metrics</div>
+    <div class="nav-tab" onclick="switchView('tickets')">🎫 Tickets &amp; Alerts</div>
+  </div>
+</div>
+
+<!-- METRICS VIEW -->
+<div class="view active" id="view-metrics">
+<div class="layout">
+  <aside class="sidebar">
+    <div>
+      <div class="field-label">Base URL</div>
+      <div class="base-url-row">
+        <input type="text" id="baseUrl" placeholder="{{ default_base_url }}" value="{{ default_base_url }}" onchange="saveState()" />
+        <button class="ping-btn" onclick="pingServer()">Ping</button>
+      </div>
+      <div class="ping-status" id="pingStatus"></div>
+    </div>
+    <hr class="divider" />
+    <div>
+      <div class="field-label">Agent IDs</div>
+      <div class="multi-select" id="ms-agents">
+        <div class="ms-trigger" onclick="toggleDropdown('ms-agents')">
+          <span class="ms-label">Select agents…</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="ms-dropdown" id="ms-agents-dropdown"></div>
+      </div>
+      <div class="ms-tags" id="ms-agents-tags"></div>
+    </div>
+    <div>
+      <div class="field-label">Metrics</div>
+      <div class="multi-select" id="ms-metrics">
+        <div class="ms-trigger" onclick="toggleDropdown('ms-metrics')">
+          <span class="ms-label">Select metrics…</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="ms-dropdown" id="ms-metrics-dropdown"></div>
+      </div>
+      <div class="ms-tags" id="ms-metrics-tags"></div>
+    </div>
+    <div>
+      <div class="field-label">Measurement</div>
+      <div class="measurement-group">
+        <div class="meas-btn active" data-val="1m" onclick="selectMeasurement(this)">1m</div>
+        <div class="meas-btn" data-val="10m" onclick="selectMeasurement(this)">10m</div>
+        <div class="meas-btn" data-val="1h" onclick="selectMeasurement(this)">1h</div>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">Lookback (minutes)</div>
+      <input type="number" id="startMinutes" value="240" min="1" max="4320" onchange="saveState()" />
+    </div>
+    <hr class="divider" />
+    <button class="run-btn" onclick="runQuery()">Run Query</button>
+    <button class="compare-btn" id="compareToggleBtn" onclick="toggleCompareMode()">⊕ Compare Mode</button>
+  </aside>
+  <main class="main">
+    <div id="emptyState" class="empty-state">
+      <div class="icon">📊</div>
+      <p>Select agents and metrics, then hit <strong>Run Query</strong>.</p>
+    </div>
+    <div class="agents-wrapper" id="resultsGrid"></div>
+  </main>
+</div>
+</div><!-- end view-metrics -->
+
+<!-- TICKETS & ALERTS VIEW -->
+<div class="view" id="view-tickets">
+  <aside class="ta-sidebar">
+    <div>
+      <div class="field-label">Role</div>
+      <div class="role-group">
+        <div class="role-btn active-user" id="roleUser" onclick="setRole('user')">User</div>
+        <div class="role-btn" id="roleResolver" onclick="setRole('resolver')">Resolver</div>
+      </div>
+    </div>
+    <div id="ta-agent-section">
+      <div class="field-label">Agent ID</div>
+      <div class="multi-select" id="ms-ta-agents">
+        <div class="ms-trigger" onclick="toggleDropdown('ms-ta-agents')">
+          <span class="ms-label" id="ta-agent-label">Select agent…</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="ms-dropdown" id="ms-ta-agents-dropdown"></div>
+      </div>
+    </div>
+    <div id="ta-filter-section">
+      <div class="field-label">Status Filter</div>
+      <div class="measurement-group">
+        <div class="meas-btn active" data-val="" onclick="setStatusFilter(this)">All</div>
+        <div class="meas-btn" data-val="OPEN" onclick="setStatusFilter(this)">Open</div>
+        <div class="meas-btn" data-val="ACK" onclick="setStatusFilter(this)">Acked</div>
+        <div class="meas-btn" data-val="CLOSED" onclick="setStatusFilter(this)">Closed</div>
+      </div>
+    </div>
+    <div id="ta-resolver-agent-section" style="display:none">
+      <div class="field-label">Filter by Agent</div>
+      <div class="multi-select" id="ms-ta-resolver-agents">
+        <div class="ms-trigger" onclick="toggleDropdown('ms-ta-resolver-agents')">
+          <span class="ms-label" id="ta-resolver-agent-label">All agents</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="ms-dropdown" id="ms-ta-resolver-agents-dropdown"></div>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">Priority</div>
+      <div class="chip-row" style="display:flex;flex-wrap:wrap;gap:5px" id="ta-priority-chips">
+        <div class="meas-btn active" style="flex:none;padding:5px 10px;font-size:11px" data-val="" onclick="setPriorityFilter(this)">All</div>
+        <div class="meas-btn" style="flex:none;padding:5px 10px;font-size:11px" data-val="P1" onclick="setPriorityFilter(this)">P1</div>
+        <div class="meas-btn" style="flex:none;padding:5px 10px;font-size:11px" data-val="P2" onclick="setPriorityFilter(this)">P2</div>
+        <div class="meas-btn" style="flex:none;padding:5px 10px;font-size:11px" data-val="P3" onclick="setPriorityFilter(this)">P3</div>
+        <div class="meas-btn" style="flex:none;padding:5px 10px;font-size:11px" data-val="P4" onclick="setPriorityFilter(this)">P4</div>
+      </div>
+    </div>
+    <div>
+      <div class="field-label" id="ta-detector-label-hdr">Detector Tag</div>
+      <div class="multi-select" id="ms-ta-detector">
+        <div class="ms-trigger" onclick="toggleDropdown('ms-ta-detector')">
+          <span class="ms-label" id="ta-detector-label">All</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="ms-dropdown" id="ms-ta-detector-dropdown" style="max-height:180px;overflow-y:auto"></div>
+      </div>
+    </div>
+    <div>
+      <div class="field-label">Time Range</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">From</div>
+          <input type="datetime-local" id="ta-time-from" style="font-size:11px;padding:6px 8px" />
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">To</div>
+          <input type="datetime-local" id="ta-time-to" style="font-size:11px;padding:6px 8px" />
+        </div>
+        <button onclick="clearTimeRange()" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-align:left;padding:0">✕ Clear range</button>
+      </div>
+    </div>
+    <hr class="divider" />
+    <button class="run-btn" onclick="loadTicketsAlerts()">Load</button>
+  </aside>
+  <main class="ta-main" id="ta-main">
+    <div class="empty-state">
+      <div class="icon">🎫</div>
+      <p>Select a role and agent, then hit <strong>Load</strong>.</p>
+    </div>
+  </main>
+</div>
+
+<!-- compare tray -->
+<div class="compare-tray" id="compareTray">
+  <div class="tray-chips" id="trayChips"></div>
+  <span class="tray-count" id="trayCount"></span>
+  <button class="clear-compare-btn" onclick="clearCompare()">Clear</button>
+  <button class="open-compare-btn" onclick="openCompareModal()">Compare →</button>
+</div>
+
+<!-- compare modal -->
+<div class="cmp-modal-backdrop" id="cmpBackdrop" onclick="closeCmpModal(event)">
+  <div class="cmp-modal-box">
+    <div class="cmp-modal-header">
+      <div>
+        <h2>Comparison</h2>
+        <div class="cmp-subtitle" id="cmpSubtitle"></div>
+      </div>
+        <button class="modal-close" onclick="closeCmpModalDirect()">✕</button>
+    </div>
+    <div id="cmpChartsWrap"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModal(event)">
+  <div class="modal-box" id="modalBox">
+    <div class="modal-header">
+      <div>
+        <div class="m-title" id="modalTitle"></div>
+        <div class="m-agent" id="modalAgent"></div>
+      </div>
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div class="modal-stats" id="modalStats">
+      <div class="modal-stat"><div class="msv" id="ms-avg">—</div><div class="msk">Average</div></div>
+      <div class="modal-stat"><div class="msv" id="ms-min">—</div><div class="msk">Min</div></div>
+      <div class="modal-stat"><div class="msv" id="ms-max">—</div><div class="msk">Max</div></div>
+      <div class="modal-stat"><div class="msv" id="ms-pts">—</div><div class="msk">Data Points</div></div>
+    </div>
+    <div class="modal-chart-wrap">
+      <canvas id="modalCanvas" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'guidance/feature-client.js' %}"></script>
+</body>
+</html>

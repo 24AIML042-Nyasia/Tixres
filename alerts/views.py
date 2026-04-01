@@ -5,6 +5,7 @@ JSON API views for the alerts app (no UI endpoints).
 """
 
 import json
+from datetime import datetime, timezone
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -53,7 +54,8 @@ def alert_list(request):
     """
     Paginated list of alerts, ordered by last_seen_at desc.
 
-    Query params: status, severity, purpose, skip (int), limit (int ≤100)
+    Query params: status, severity, purpose, metric_name, agent_id,
+                  start/end (ISO8601 for last_seen_at), skip (int), limit (int <=100)
     """
     qs = Alert.objects.all()
 
@@ -63,6 +65,29 @@ def alert_list(request):
         qs = qs.filter(severity=severity)
     if purpose := request.GET.get("purpose"):
         qs = qs.filter(purpose=purpose)
+    if metric := request.GET.get("metric_name"):
+        qs = qs.filter(metric_name=metric)
+    if agent_id := request.GET.get("agent_id"):
+        qs = qs.filter(agent_ids__icontains=f'"{agent_id}"')
+
+    def _parse_ts(raw: str | None):
+        if not raw:
+            return None
+        try:
+            cleaned = raw.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(cleaned)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            return None
+
+    start_ts = _parse_ts(request.GET.get("start") or request.GET.get("from") or request.GET.get("start_at"))
+    end_ts   = _parse_ts(request.GET.get("end")   or request.GET.get("to")   or request.GET.get("end_at"))
+    if start_ts:
+        qs = qs.filter(last_seen_at__gte=start_ts)
+    if end_ts:
+        qs = qs.filter(last_seen_at__lte=end_ts)
 
     try:
         skip  = max(int(request.GET.get("skip", 0)), 0)
@@ -90,6 +115,48 @@ def alert_detail(request, alert_id: int):
     except Alert.DoesNotExist:
         return JsonResponse({"error": f"Alert {alert_id} not found"}, status=404)
     return JsonResponse(_serialize_alert(alert))
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/alerts/<alert_id>/ack/
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+@require_http_methods(["PATCH"])
+def alert_ack(request, alert_id: int):
+    """Acknowledge an OPEN alert."""
+    try:
+        alert = Alert.objects.get(pk=alert_id)
+    except Alert.DoesNotExist:
+        return JsonResponse({"error": f"Alert {alert_id} not found"}, status=404)
+
+    data, err = _json_body(request)
+    if err:
+        return err
+
+    acked_by = data.get("acked_by") or data.get("acknowledged_by") or "resolver"
+
+    if alert.status == "CLOSED":
+        return JsonResponse({"error": f"Alert {alert_id} is already CLOSED"}, status=400)
+
+    if alert.status == "OPEN":
+        alert.status = "ACK"
+        alert.acknowledged_at = datetime.now(tz=timezone.utc)
+        alert.acknowledged_by = acked_by
+        alert.save(update_fields=["status", "acknowledged_at", "acknowledged_by"])
+        acknowledged = True
+    else:
+        acknowledged = False
+
+    return JsonResponse(
+        {
+            "alert_id": alert_id,
+            "acknowledged": acknowledged,
+            "status": alert.status,
+            "acknowledged_by": alert.acknowledged_by,
+            "acknowledged_at": alert.acknowledged_at.isoformat() if alert.acknowledged_at else None,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------

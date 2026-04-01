@@ -208,6 +208,11 @@ class TicketService:
         agent_id: str,
         limit: int = 100,
         include_p4: bool = False,
+        status: str | None = None,
+        severity: str | None = None,
+        detector: str | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
     ) -> list[dict]:
         """
         Retrieve tickets for a given agent, ordered by most recent activity first.
@@ -215,6 +220,16 @@ class TicketService:
         qs = Ticket.objects.filter(agent_id=agent_id)
         if not include_p4:
             qs = qs.exclude(severity__in=_IGNORED_SEVERITIES)
+        if status:
+            qs = qs.filter(status=status)
+        if severity:
+            qs = qs.filter(severity=severity)
+        if start:
+            qs = qs.filter(last_occurred_at__gte=start)
+        if end:
+            qs = qs.filter(last_occurred_at__lte=end)
+        if detector:
+            qs = qs.filter(detectors__icontains=f'"{detector}"')
 
         tickets = qs.select_related("assigned_to").order_by("-last_occurred_at")[:limit]
 

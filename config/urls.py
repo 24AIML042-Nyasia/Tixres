@@ -3,7 +3,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
+from config import views as config_views
+
 urlpatterns = [
+    path('demo/ui/',     config_views.feature_client_ui, name='feature-client-ui'),
     path('admin/',        admin.site.urls),
     path('api/dev-auth/',   include('dev_auth.urls')),
     path('api/auth/',       include('auth_core.urls')),

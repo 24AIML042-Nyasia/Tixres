@@ -215,8 +215,12 @@ def ticket_list(request, agent_id: str):
     Return the most recent tickets for an agent.
 
     Query params:
-      - limit   (int, 1-100, default 100)
-      - include_p4 (bool, default false)
+      - limit        (int, 1-100, default 100)
+      - include_p4   (bool, default false)
+      - status       (OPEN|ACK|CLOSED)
+      - severity     (priority filter, e.g. P1)
+      - detector     (matches detectors array)
+      - start / end  (ISO8601; filters last_occurred_at range)
     """
     try:
         limit = min(max(int(request.GET.get("limit", 100)), 1), 100)
@@ -224,7 +228,31 @@ def ticket_list(request, agent_id: str):
         limit = 100
     include_p4 = request.GET.get("include_p4", "false").lower() == "true"
 
-    tickets = TicketService.get_tickets(agent_id, limit=limit, include_p4=include_p4)
+    def _parse_ts(raw: str | None):
+        if not raw:
+            return None
+        try:
+            cleaned = raw.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(cleaned)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except ValueError:
+            return None
+
+    start_ts = _parse_ts(request.GET.get("start") or request.GET.get("from") or request.GET.get("start_at"))
+    end_ts   = _parse_ts(request.GET.get("end")   or request.GET.get("to")   or request.GET.get("end_at"))
+
+    tickets = TicketService.get_tickets(
+        agent_id,
+        limit=limit,
+        include_p4=include_p4,
+        status=request.GET.get("status") or None,
+        severity=request.GET.get("severity") or request.GET.get("priority") or None,
+        detector=request.GET.get("detector") or None,
+        start=start_ts,
+        end=end_ts,
+    )
 
     # Serialize datetime fields
     def _serialize(t: dict) -> dict:
