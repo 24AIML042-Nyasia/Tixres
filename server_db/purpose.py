@@ -29,6 +29,13 @@ def create_purpose(purpose: str = "general", template: Optional[TemplateType] = 
     try:
         existing = session.query(Purpose).filter(Purpose.purpose == purpose).first()
         if existing:
+            if template is not None:
+                normalized = _normalize_template(template)
+                template_str = json.dumps(normalized) if not isinstance(normalized, str) else normalized
+                if existing.template != template_str:
+                    existing.template = template_str
+                    session.commit()
+                    session.refresh(existing)
             return existing
 
         normalized = _normalize_template(template if template is not None else DEFAULT_TEMPLATE)
@@ -98,3 +105,25 @@ def set_template(db: Session, template: str, agent_id: str):
 
     db.execute(stmt)
     db.commit()
+
+
+def backfill_agent_purposes(default_purpose: str = "general", db: Optional[Session] = None) -> int:
+    """
+    Assign a default purpose to any agents missing one.
+    Returns the number of agents updated.
+    """
+    session = db or SessionLocal()
+    close_session = db is None
+    try:
+        purpose_row = create_purpose(default_purpose, DEFAULT_TEMPLATE, db=session)
+        missing_agents = session.query(Agent).filter(Agent.purpose_id.is_(None)).all()
+        updated = 0
+        for agent in missing_agents:
+            agent.purpose_id = purpose_row.id
+            updated += 1
+        if updated:
+            session.commit()
+        return updated
+    finally:
+        if close_session:
+            session.close()

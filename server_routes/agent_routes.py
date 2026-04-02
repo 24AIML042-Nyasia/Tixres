@@ -22,10 +22,14 @@ async def register_agent(request: AgentRegisterRequest):
     try:
         api_key, secret_key = generate_credentials()
         agent_id = f"agent_{secrets.token_urlsafe(16)}"
+        purpose_value = request.purpose or "general"
         
         db = SessionLocal()
         try:
-            purpose_row = create_purpose(request.purpose or "general", db=db)
+            purpose_row = create_purpose(purpose_value, template=request.template, db=db)
+            template_value = None
+            if request.template is not None:
+                template_value = json.dumps(request.template) if not isinstance(request.template, str) else request.template
             credentials = AgentCredentials(
                 agent_id=agent_id,
                 api_key=api_key,
@@ -40,6 +44,7 @@ async def register_agent(request: AgentRegisterRequest):
                 os=request.os,
                 fingerprint=request.fingerprint,
                 purpose_id=purpose_row.id,
+                template=template_value,
                 heartbeat=datetime.now()
             )
             db.add(agent)
@@ -53,7 +58,7 @@ async def register_agent(request: AgentRegisterRequest):
                 api_key=api_key,
                 secret_key=secret_key,
                 template = agent.effective_template,
-                purpose = purpose_row.purpose,
+                purpose = purpose_row.purpose or purpose_value,
                 message="Agent registered successfully"
             )
         finally:
