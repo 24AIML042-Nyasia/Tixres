@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Tixres – Metrics Explorer</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <style>
+    :root{--accent:#1f6feb;--ok:#3fb950;--warn:#d29922;--danger:#f85149;--bg2:#0d1117;--bg3:#161b22;--border:#30363d;--muted:#8b949e;--text:#e6edf3;}
+    body{background:var(--bg2);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+    .wrap{max-width:1280px;margin:0 auto;padding:24px 16px;}
+
+    /* Filter bar */
+    .filter-bar{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;}
+    .filter-group label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+    .filter-group input,.filter-group select{background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:13px;outline:none;width:100%;}
+    .filter-group input:focus,.filter-group select:focus{border-color:var(--accent);}
+
+    /* Table chips for table selection */
+    .table-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+    .table-chip{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:.15s;text-transform:uppercase;letter-spacing:.4px;}
+    .table-chip:hover{border-color:#58a6ff;color:#58a6ff;}
+    .table-chip.active{background:rgba(31,111,235,.15);border-color:var(--accent);color:#58a6ff;}
+    .table-chip.rollup{background:rgba(63,185,80,.07);}
+    .table-chip.rollup.active{background:rgba(63,185,80,.15);border-color:var(--ok);color:var(--ok);}
+
+    /* Results card */
+    .results-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+    .results-header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);}
+    .results-title{font-weight:600;font-size:15px;flex:1;}
+    .results-count{font-size:12px;color:var(--muted);}
+    .btn{padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:.15s;}
+    .btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{opacity:.85;}
+    .btn-ghost{background:#21262d;color:var(--text);}.btn-ghost:hover{background:#30363d;}
+
+    /* Table */
+    .tbl-wrap{overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;}
+    th{text-align:left;padding:10px 14px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap;}
+    td{padding:10px 14px;border-bottom:1px solid #21262d;font-size:12px;font-family:'JetBrains Mono',monospace,sans-serif;vertical-align:middle;}
+    tr:hover td{background:rgba(255,255,255,.02);}
+    .value-cell{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#adbac7;}
+    .metric-name{color:#79c0ff;font-weight:500;}
+    .ts-cell{color:var(--muted);font-size:11px;}
+    .num-cell{color:#a8d8a8;text-align:right;}
+    .rollup-min{color:#79c0ff;}
+    .rollup-max{color:#f97583;}
+    .rollup-avg{color:#e3b341;}
+
+    /* Pagination */
+    .pagination{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--border);}
+    .pagination button{background:#21262d;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;}
+    .pagination button:disabled{opacity:.4;cursor:not-allowed;}
+    .pagination .page-info{flex:1;text-align:center;font-size:12px;color:var(--muted);}
+
+    /* Empty/loading */
+    .state-msg{text-align:center;padding:48px 0;color:var(--muted);font-size:14px;}
+
+    /* Stats strip */
+    .stats-strip{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;}
+    .stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 18px;flex:1;min-width:120px;}
+    .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+    .stat-val{font-size:20px;font-weight:700;}
+
+    nav.nav-links a{color:var(--muted);text-decoration:none;font-size:13px;transition:.15s;}
+    nav.nav-links a:hover{color:var(--text);}
+    nav.nav-links a.active{color:#fff;font-weight:600;}
+    nav.nav-links{display:flex;gap:20px;}
+  </style>
+</head>
+<body>
+<div class="dash">
+  <div class="topbar">
+    <div class="topbar-left" style="flex:1;">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div class="status-dot"></div>
+        <span class="logo">Tixres</span>
+      </div>
+      <nav class="nav-links" style="margin-left:16px;">
+        <a href="index.html">Dashboard</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="incidents.html">Incidents</a>
+        <a href="guidance.html">Guidance</a>
+        <a href="rollups.html" class="active">Metrics</a>
+        <a href="admin.html">Admin</a>
+      </nav>
+    </div>
+    <div id="user-pill-container"></div>
+  </div>
+
+  <div class="wrap">
+    <h1 style="font-size:22px;font-weight:700;margin-bottom:20px;">📊 Metrics Explorer</h1>
+
+    <!-- Table type selector -->
+    <div class="table-chips" id="table-chips">
+      <div class="table-chip active" data-table="metric_numeric">📈 Numeric</div>
+      <div class="table-chip" data-table="metric_json">🗂 JSON</div>
+      <div class="table-chip" data-table="metric_log">📋 Log</div>
+      <div class="table-chip rollup" data-table="metric_numeric_1m">⏱ 1m Rollup</div>
+      <div class="table-chip rollup" data-table="metric_numeric_10m">⏱ 10m Rollup</div>
+      <div class="table-chip rollup" data-table="metric_numeric_1h">⏱ 1h Rollup</div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Agent</label>
+        <select id="f-agent">
+          <option value="">All agents</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Metric Name (contains)</label>
+        <input id="f-metric" type="text" placeholder="e.g. cpu_usage"/>
+      </div>
+      <div class="filter-group">
+        <label>From</label>
+        <input id="f-from" type="datetime-local"/>
+      </div>
+      <div class="filter-group">
+        <label>To</label>
+        <input id="f-to" type="datetime-local"/>
+      </div>
+      <div class="filter-group">
+        <label>Rows per page</label>
+        <select id="f-limit">
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+        </select>
+      </div>
+      <div class="filter-group" style="display:flex;gap:8px;align-items:flex-end;">
+        <button class="btn btn-primary" id="btn-search" style="flex:1;">🔍 Search</button>
+        <button class="btn btn-ghost" id="btn-clear">✕</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-strip" id="stats-strip" style="display:none;">
+      <div class="stat-box"><div class="stat-label">Total Rows</div><div class="stat-val" id="stat-total">–</div></div>
+      <div class="stat-box"><div class="stat-label">Showing</div><div class="stat-val" id="stat-showing">–</div></div>
+      <div class="stat-box"><div class="stat-label">Table</div><div class="stat-val" id="stat-table" style="font-size:13px;padding-top:4px;">–</div></div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-card">
+      <div class="results-header">
+        <span class="results-title" id="results-title">Select a table type and press Search</span>
+        <span class="results-count" id="results-count"></span>
+        <button class="btn btn-ghost" id="btn-export" style="display:none;">⬇ Export CSV</button>
+      </div>
+      <div class="tbl-wrap">
+        <table id="results-table">
+          <thead id="results-thead"><tr><th colspan="6" class="state-msg">–</th></tr></thead>
+          <tbody id="results-tbody">
+            <tr><td colspan="6" class="state-msg">Press Search to load data.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination" style="display:none;">
+        <button id="btn-prev" disabled>‹ Prev</button>
+        <span class="page-info" id="page-info">Page 1</span>
+        <button id="btn-next">Next ›</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createWsClient } from "./js/ws.js";
+import { requireAuth, getToken, getRole, renderUserPill } from "./js/auth.js";
+import { WS_URL } from "./js/config.js";
+
+const token = requireAuth("rollups.html");
+renderUserPill("user-pill-container");
+
+let currentTable = "metric_numeric";
+let currentOffset = 0;
+let currentTotal = 0;
+let currentLimit = 100;
+let lastRows = [];
+
+// ── Table chip selection ─────────────────────────────────
+document.querySelectorAll(".table-chip").forEach(chip => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".table-chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    currentTable = chip.dataset.table;
+    currentOffset = 0;
+    doSearch();
+  });
+});
+
+// ── Filters ───────────────────────────────────────────────
+document.getElementById("btn-search").addEventListener("click", () => { currentOffset = 0; doSearch(); });
+document.getElementById("btn-clear").addEventListener("click", () => {
+  document.getElementById("f-agent").value = "";
+  document.getElementById("f-metric").value = "";
+  document.getElementById("f-from").value = "";
+  document.getElementById("f-to").value = "";
+  currentOffset = 0;
+  doSearch();
+});
+
+function localToUtc(localStr) {
+  if (!localStr) return null;
+  const d = new Date(localStr);
+  return d.toISOString().replace("T", " ").slice(0, 19);
+}
+
+function doSearch() {
+  currentLimit = parseInt(document.getElementById("f-limit").value) || 100;
+  const payload = {
+    token,
+    table: currentTable,
+    agent_id: document.getElementById("f-agent").value || null,
+    metric_name: document.getElementById("f-metric").value || null,
+    from_ts: localToUtc(document.getElementById("f-from").value),
+    to_ts: localToUtc(document.getElementById("f-to").value),
+    limit: currentLimit,
+    offset: currentOffset,
+  };
+  document.getElementById("results-tbody").innerHTML = `<tr><td colspan="10" class="state-msg">⏳ Loading…</td></tr>`;
+  ws.send({ event: "ui_get_metrics_table", data: payload });
+}
+
+// ── Pagination ─────────────────────────────────────────────
+document.getElementById("btn-prev").addEventListener("click", () => {
+  if (currentOffset > 0) { currentOffset = Math.max(0, currentOffset - currentLimit); doSearch(); }
+});
+document.getElementById("btn-next").addEventListener("click", () => {
+  if (currentOffset + currentLimit < currentTotal) { currentOffset += currentLimit; doSearch(); }
+});
+
+// ── Render results ─────────────────────────────────────────
+const ROLLUP_TABLES = new Set(["metric_numeric_1m", "metric_numeric_10m", "metric_numeric_1h"]);
+
+function renderTable(data) {
+  const { table, total, rows, limit, offset } = data;
+  currentTotal = total;
+  lastRows = rows;
+
+  // Stats
+  const strip = document.getElementById("stats-strip");
+  strip.style.display = "flex";
+  document.getElementById("stat-total").textContent = total.toLocaleString();
+  document.getElementById("stat-showing").textContent = `${offset + 1}–${Math.min(offset + rows.length, total)}`;
+  document.getElementById("stat-table").textContent = table;
+
+  document.getElementById("results-title").textContent =
+    `${table} — ${total.toLocaleString()} rows`;
+  document.getElementById("results-count").textContent = `Page ${Math.floor(offset / limit) + 1}`;
+
+  const isRollup = ROLLUP_TABLES.has(table);
+  const thead = document.getElementById("results-thead");
+  const tbody = document.getElementById("results-tbody");
+  const exportBtn = document.getElementById("btn-export");
+  exportBtn.style.display = rows.length ? "inline-block" : "none";
+
+  if (!rows.length) {
+    thead.innerHTML = "<tr><th>–</th></tr>";
+    tbody.innerHTML = `<tr><td class="state-msg">No data found for the selected filters.</td></tr>`;
+    document.getElementById("pagination").style.display = "none";
+    return;
+  }
+
+  if (isRollup) {
+    thead.innerHTML = `<tr>
+      <th>#</th><th>Agent ID</th><th>Metric Name</th><th>Bucket Start</th>
+      <th style="text-align:right">Count</th>
+      <th style="text-align:right">Min</th>
+      <th style="text-align:right">Avg</th>
+      <th style="text-align:right">Max</th>
+      <th style="text-align:right">Sum</th>
+    </tr>`;
+    tbody.innerHTML = rows.map((r, i) => {
+      const avg = r.count ? (r.sum / r.count).toFixed(3) : "–";
+      return `<tr>
+        <td class="ts-cell">${offset + i + 1}</td>
+        <td class="ts-cell">${(r.agent_id || "").slice(0,12)}…</td>
+        <td class="metric-name">${r.metric_name}</td>
+        <td class="ts-cell">${r.bucket_start}</td>
+        <td class="num-cell">${r.count}</td>
+        <td class="num-cell rollup-min">${parseFloat(r.min).toFixed(3)}</td>
+        <td class="num-cell rollup-avg">${avg}</td>
+        <td class="num-cell rollup-max">${parseFloat(r.max).toFixed(3)}</td>
+        <td class="num-cell">${parseFloat(r.sum).toFixed(3)}</td>
+      </tr>`;
+    }).join("");
+  } else if (table === "metric_numeric") {
+    thead.innerHTML = `<tr>
+      <th>#</th><th>Agent ID</th><th>Metric Name</th>
+      <th style="text-align:right">Value</th><th>Timestamp</th><th>Received At</th>
+    </tr>`;
+    tbody.innerHTML = rows.map((r, i) => `<tr>
+      <td class="ts-cell">${offset + i + 1}</td>
+      <td class="ts-cell">${(r.agent_id || "").slice(0,12)}…</td>
+      <td class="metric-name">${r.metric_name}</td>
+      <td class="num-cell">${parseFloat(r.value).toFixed(4)}</td>
+      <td class="ts-cell">${r.timestamp}</td>
+      <td class="ts-cell">${r.received_at || "–"}</td>
+    </tr>`).join("");
+  } else {
+    // JSON / Log
+    thead.innerHTML = `<tr>
+      <th>#</th><th>Agent ID</th><th>Metric Name</th>
+      <th>Value</th><th>Timestamp</th>
+    </tr>`;
+    tbody.innerHTML = rows.map((r, i) => {
+      let display = r.value || "";
+      try { display = JSON.stringify(JSON.parse(display), null, 0); } catch {}
+      return `<tr>
+        <td class="ts-cell">${offset + i + 1}</td>
+        <td class="ts-cell">${(r.agent_id || "").slice(0,12)}…</td>
+        <td class="metric-name">${r.metric_name}</td>
+        <td class="value-cell" title="${display.replace(/"/g,'&quot;')}">${display}</td>
+        <td class="ts-cell">${r.timestamp}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  const pag = document.getElementById("pagination");
+  pag.style.display = "flex";
+  document.getElementById("btn-prev").disabled = offset === 0;
+  document.getElementById("btn-next").disabled = offset + rows.length >= total;
+  document.getElementById("page-info").textContent =
+    `Page ${Math.floor(offset / limit) + 1} of ${Math.ceil(total / limit) || 1}`;
+}
+
+// ── Export CSV ────────────────────────────────────────────
+document.getElementById("btn-export").addEventListener("click", () => {
+  if (!lastRows.length) return;
+  const keys = Object.keys(lastRows[0]);
+  const csv = [keys.join(","), ...lastRows.map(r => keys.map(k => {
+    const v = r[k] ?? "";
+    return `"${String(v).replace(/"/g, '""')}"`;
+  }).join(","))].join("\n");
+  const a = document.createElement("a");
+  a.href = "data:text/csv," + encodeURIComponent(csv);
+  a.download = `${currentTable}_export.csv`;
+  a.click();
+});
+
+// ── WS ────────────────────────────────────────────────────
+const ws = createWsClient(WS_URL, {
+  onOpen: () => {
+    ws.send({ event: "ui_subscribe", data: { token } });
+  },
+  onMessage: (msg) => {
+    if (msg.event === "ui_subscribe" && msg.ok) {
+      const sel = document.getElementById("f-agent");
+      (msg.data.agents || []).forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a.agent_id;
+        opt.textContent = `${a.hostname} (${a.agent_id.slice(0,8)}…)`;
+        sel.appendChild(opt);
+      });
+      // Auto-search on load
+      doSearch();
+    }
+    if (msg.event === "ui_get_metrics_table") {
+      if (msg.ok) renderTable(msg.data);
+      else {
+        document.getElementById("results-tbody").innerHTML =
+          `<tr><td colspan="10" class="state-msg" style="color:var(--danger)">❌ ${msg.error}</td></tr>`;
+      }
+    }
+  }
+});
+
+ws.connect();
+</script>
+</body>
+</html>

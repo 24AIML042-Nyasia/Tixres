@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+langchain
+langchain-community
+langchain-huggingface
+sentence-transformers
+faiss-cpu
+transformers
+torch
+requests
+sqlite3
+beautifulsoup4
+trafilatura

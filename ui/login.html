@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tixres – Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg:        #0d1117;
+        --surface:   #161b22;
+        --border:    #30363d;
+        --accent:    #238636;
+        --accent-h:  #2ea043;
+        --blue:      #1f6feb;
+        --blue-h:    #388bfd;
+        --text:      #e6edf3;
+        --muted:     #8b949e;
+        --danger:    #f85149;
+        --input-bg:  #0d1117;
+      }
+
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      /* Animated background grid */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(31,111,235,.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(31,111,235,.05) 1px, transparent 1px);
+        background-size: 40px 40px;
+        animation: gridPan 20s linear infinite;
+        pointer-events: none;
+      }
+
+      @keyframes gridPan {
+        0%   { background-position: 0 0; }
+        100% { background-position: 40px 40px; }
+      }
+
+      .glow {
+        position: fixed;
+        width: 600px; height: 600px;
+        border-radius: 50%;
+        filter: blur(120px);
+        pointer-events: none;
+        opacity: 0.15;
+      }
+      .glow-blue  { background: #1f6feb; top: -200px; left: -200px; }
+      .glow-green { background: #238636; bottom: -200px; right: -200px; }
+
+      .card {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 400px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 40px 36px;
+        box-shadow: 0 0 0 1px rgba(31,111,235,.1), 0 32px 64px rgba(0,0,0,.4);
+        animation: fadeUp .4s ease both;
+      }
+
+      @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .logo-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 28px;
+      }
+
+      .logo-dot {
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        background: #3fb950;
+        box-shadow: 0 0 10px #3fb950, 0 0 20px rgba(63,185,80,.4);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,100% { box-shadow: 0 0 8px #3fb950, 0 0 16px rgba(63,185,80,.4); }
+        50%      { box-shadow: 0 0 14px #3fb950, 0 0 28px rgba(63,185,80,.6); }
+      }
+
+      .logo-name {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        background: linear-gradient(135deg, #e6edf3, #58a6ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .card-title {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      .card-sub {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 28px;
+        line-height: 1.5;
+      }
+
+      .field {
+        margin-bottom: 18px;
+      }
+
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+      }
+
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        background: var(--input-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: inherit;
+        font-size: 14px;
+        padding: 10px 14px;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+      }
+
+      input:focus {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px rgba(31,111,235,.2);
+      }
+
+      .btn-signin {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: none;
+        background: var(--blue);
+        color: #fff;
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .2s, transform .1s;
+        margin-top: 8px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .btn-signin:hover { background: var(--blue-h); }
+      .btn-signin:active { transform: scale(.98); }
+      .btn-signin:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+      .btn-signin .spinner {
+        display: none;
+        width: 18px; height: 18px;
+        border: 2px solid rgba(255,255,255,.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+        margin: 0 auto;
+      }
+
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .error-box {
+        display: none;
+        background: rgba(248,81,73,.1);
+        border: 1px solid rgba(248,81,73,.3);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: var(--danger);
+        margin-top: 14px;
+      }
+
+      .sso-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 20px;
+        justify-content: center;
+      }
+
+      .sso-badge::before {
+        content: '🔐';
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="glow glow-blue"></div>
+    <div class="glow glow-green"></div>
+
+    <div class="card">
+      <div class="logo-row">
+        <div class="logo-dot"></div>
+        <span class="logo-name">Tixres</span>
+      </div>
+
+      <div class="card-title">Sign in to continue</div>
+      <div class="card-sub">Enter your credentials to access the monitoring dashboard.</div>
+
+      <form id="login-form" autocomplete="on">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" type="text" name="username" placeholder="e.g. alice" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" name="password" placeholder="••••••••" autocomplete="current-password" required />
+        </div>
+        <button id="signin-btn" class="btn-signin" type="submit">
+          <span id="btn-text">Sign In</span>
+          <div class="spinner" id="btn-spin"></div>
+        </button>
+        <div class="error-box" id="error-box"></div>
+      </form>
+
+      <div class="sso-badge">JWT-based SSO compatible authentication</div>
+    </div>
+
+    <script type="module">
+      import { createWsClient } from "./js/ws.js";
+      import { WS_URL } from "./js/config.js";
+
+      // If already logged in, redirect
+      const stored = sessionStorage.getItem("sysmon_token");
+      if (stored) {
+        const redirect = new URLSearchParams(location.search).get("next") || "index.html";
+        location.href = redirect;
+      }
+
+
+      const form = document.getElementById("login-form");
+      const btn  = document.getElementById("signin-btn");
+      const btnText = document.getElementById("btn-text");
+      const spinner = document.getElementById("btn-spin");
+      const errorBox = document.getElementById("error-box");
+
+      function setLoading(on) {
+        btn.disabled = on;
+        btnText.style.display = on ? "none" : "inline";
+        spinner.style.display = on ? "block" : "none";
+      }
+
+      function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.style.display = "block";
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        errorBox.style.display = "none";
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value;
+        if (!username || !password) return;
+
+        setLoading(true);
+
+        const ws = createWsClient(WS_URL, {
+          onOpen: () => {
+            ws.send({ event: "ui_login", data: { username, password } });
+          },
+          onMessage: (msg) => {
+            if (msg.event === "ui_login") {
+              ws.disconnect();
+              if (msg.ok) {
+                sessionStorage.setItem("sysmon_token", msg.data.token);
+                sessionStorage.setItem("sysmon_username", msg.data.username);
+                sessionStorage.setItem("sysmon_role", msg.data.role);
+                const redirect = new URLSearchParams(location.search).get("next") || "index.html";
+                location.href = redirect;
+              } else {
+                setLoading(false);
+                showError(msg.error || "Login failed. Check your credentials.");
+              }
+            }
+          },
+          onError: () => {
+            setLoading(false);
+            showError("Cannot reach the server. Is Tixres running?");
+          },
+        });
+        ws.connect();
+      });
+    </script>
+  </body>
+</html>

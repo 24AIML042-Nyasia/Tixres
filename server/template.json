@@ -1,0 +1,132 @@
+{
+  "template": {
+    "modules": [
+      "cpu_v1.0.0",
+      "memory_v1.0.0",
+      "disk_v1.0.0",
+      "system_v1.0.0",
+      "process_v1.0.0",
+      "network_v1.0.0",
+      "temperature_v1.0.0"
+    ],
+    "metrics": {
+      "cpu_v1.0.0.usage_overall": 7,
+      "cpu_v1.0.0.usage_per_core": 10,
+      "cpu_v1.0.0.load_average": 15,
+      "cpu_v1.0.0.frequency": 10,
+      "cpu_v1.0.0.core_count": 300,
+      "cpu_v1.0.0.temperature": 10,
+      "memory_v1.0.0.ram": 5,
+      "memory_v1.0.0.swap": 10,
+      "memory_v1.0.0.cached_vs_free": 15,
+      "disk_v1.0.0.usage": 60,
+      "disk_v1.0.0.io": 5,
+      "system_v1.0.0.uptime": 60,
+      "system_v1.0.0.info": 300,
+      "system_v1.0.0.users": 30,
+      "system_v1.0.0.process_count": 10,
+      "process_v1.0.0.top": 10,
+      "process_v1.0.0.top_cpu": 10,
+      "process_v1.0.0.top_memory": 15,
+      "process_v1.0.0.zombie_count": 30,
+      "process_v1.0.0.total_threads": 15,
+      "network_v1.0.0.io": 5,
+      "network_v1.0.0.connections": 10,
+      "network_v1.0.0.connections_detail": 15,
+      "network_v1.0.0.errors": 30,
+      "temperature_v1.0.0.battery": 60
+    },
+    "detectors": {
+      "stat_z_high": 5.0,
+      "stat_z_medium": 3.0,
+      "stat_z_low": 2.0,
+      "stat_mad_high": 5.0,
+      "stat_mad_medium": 3.0,
+      "stat_mad_low": 2.0,
+      "stat_min_history": 5,
+      "stat_history_limit": 20,
+      "cpu_temp_high_c": 85.0,
+      "cpu_temp_medium_c": 75.0,
+      "ram_high_pct": 90.0,
+      "disk_high_pct": 90.0,
+      "disk_latency_ms": 100.0,
+      "cpu_jump_low_pct": 30.0,
+      "cpu_jump_high_pct": 90.0,
+      "cpu_sustained_pct": 85.0,
+      "cpu_sustained_secs": 120,
+      "ram_increase_secs": 600,
+      "net_spike_factor": 2.0,
+      "disk_io_spike_factor": 3.0,
+      "dedup_high_secs": 300,
+      "dedup_medium_secs": 600,
+      "dedup_low_secs": 900
+    },
+    "retention": {
+      "metric_numeric": 7,
+      "metric_json": 3,
+      "metric_log": 1
+    },
+    "rollups": {
+      "1m_bucket_seconds": 60,
+      "10m_bucket_seconds": 600,
+      "1h_bucket_seconds": 3600
+    },
+    "guidance": {
+      "cpu_temp_high": {
+        "title": "High CPU Temperature",
+        "description": "The processor is operating above safe temperature thresholds.",
+        "steps": [
+          "Identify and terminate high-CPU processes using the Process Monitor.",
+          "Check for dust or obstructions in the physical cooling vents.",
+          "Ensure the system is in a well-ventilated area.",
+          "If the issue persists, consider reapplying thermal paste or checking fan health."
+        ],
+        "priority": "CRITICAL"
+      },
+      "ram_usage_high": {
+        "title": "High RAM Utilization",
+        "description": "System memory is nearly exhausted, which may cause performance degradation or OOM kills.",
+        "steps": [
+          "Check the Process Monitor for memory-intensive applications.",
+          "Restart services that are consuming excessive memory.",
+          "Check for memory leaks in custom applications.",
+          "Consider adding more physical RAM if this is a frequent occurrence."
+        ],
+        "priority": "HIGH"
+      },
+      "disk_usage_high": {
+        "title": "Disk Space Critical",
+        "description": "One or more disk partitions are nearly full.",
+        "steps": [
+          "Run a disk cleanup utility to remove temporary files.",
+          "Check /var/log or C:\\Windows\\Logs for large log files.",
+          "Compress or move large, infrequently used files to external storage.",
+          "Check for large database files that might need vacuuming."
+        ],
+        "priority": "HIGH"
+      },
+      "network_io_spike": {
+        "title": "Unusual Network Activity",
+        "description": "A significant spike in network traffic has been detected.",
+        "steps": [
+          "Check the 'Active connections detail' section to identify the source IP/process.",
+          "Determine if this is an expected backup or synchronization task.",
+          "If unexpected, check for unauthorized data transfers or potential DDoS activity.",
+          "Use netstat or tcpdump for deeper inspection if needed."
+        ],
+        "priority": "MEDIUM"
+      },
+      "statistical_anomaly": {
+        "title": "Unexpected Metric Deviation",
+        "description": "The metric has deviated significantly from its recent historical baseline.",
+        "steps": [
+          "Review the metric graph to see the trend leading up to the anomaly.",
+          "Check for recent system changes or deployments that might have caused the shift.",
+          "Investigate logs from around the time of the deviation.",
+          "Monitor the metric closely to see if it returns to normal or stabilizes at a new level."
+        ],
+        "priority": "LOW"
+      }
+    }
+  }
+}

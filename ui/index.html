@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tixres</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      .agent-select {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        color: #e6edf3;
+        font-size: 13px;
+        padding: 4px 8px;
+        outline: none;
+        cursor: pointer;
+        max-width: 200px;
+      }
+      .agent-select:hover { border-color: #58a6ff; }
+    </style>
+  </head>
+  <body>
+    <div class="dash">
+      <h2
+        class="sr-only"
+        style="position: absolute; width: 1px; height: 1px; overflow: hidden"
+      >
+        PC monitoring dashboard showing CPU, memory, disk, network, and process information
+      </h2>
+
+      <div class="topbar">
+        <div class="topbar-left">
+          <div style="display: flex; align-items: center; gap: 7px">
+            <div class="status-dot"></div>
+            <span class="logo">Tixres</span>
+          </div>
+          <div style="display: flex; gap: 15px; margin-left: 20px; font-size: 13px;">
+            <a href="index.html" style="color: #fff; text-decoration: none; font-weight: 600;">Dashboard</a>
+            <a href="alerts.html" style="color: #8b949e; text-decoration: none;">Alerts</a>
+            <a href="incidents.html" style="color: #8b949e; text-decoration: none;">Incidents</a>
+            <a href="guidance.html" style="color: #8b949e; text-decoration: none;">Guidance</a>
+            <a href="rollups.html" style="color: #8b949e; text-decoration: none;">Metrics</a>
+            <a href="admin.html" id="nav-admin" style="display: none; color: #8b949e; text-decoration: none;">Admin</a>
+          </div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+            <select id="agent-selector" class="agent-select">
+              <option value="">No agents</option>
+            </select>
+            <select id="plugin-selector" class="agent-select" style="max-width: 150px;">
+              <option value="">No plugin</option>
+            </select>
+            <span class="uptime" id="agent-uptime">Uptime: —</span>
+          </div>
+        </div>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: #8b949e;
+            font-size: 11px;
+          "
+        >
+          <span id="clock"></span>
+          <span class="card-badge badge-info" id="system-badge">Connecting…</span>
+          <div id="user-pill-container"></div>
+        </div>
+      </div>
+
+      <div id="warn-bar" class="alert-bar" style="display: none">
+        <div class="alert-dot"></div>
+        <span id="warn-text"></span>
+      </div>
+
+      <div id="alerts-container" class="alert-panel">
+        <div class="alert-empty">No active anomalies detected.</div>
+      </div>
+
+      <div class="grid2">
+        <!-- CPU CARD -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">CPU</span>
+            <span class="card-badge badge-info" id="cpu-badge">Normal</span>
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 10px">
+            <div>
+              <div class="stat-val" id="cpu-overall">—</div>
+              <div class="stat-sub">Overall usage</div>
+            </div>
+            <div>
+              <div class="stat-val" style="font-size: 16px" id="cpu-ghz">—</div>
+              <div class="stat-sub">Clock speed</div>
+            </div>
+            <div>
+              <div class="stat-val" style="font-size: 16px; color: #f85149" id="cpu-temp">—</div>
+              <div class="stat-sub">Temperature</div>
+            </div>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill bar-blue" id="cpu-bar" style="width: 0%"></div>
+          </div>
+          <div class="interpret">
+            Interpretation: <span class="int-ok" id="cpu-interp">—</span>
+          </div>
+          <div class="mini-grid" id="core-grid"></div>
+          <div style="margin-top: 12px">
+            <div class="section-label">Usage over time</div>
+            <div class="chart-wrap" style="height: 110px">
+              <canvas id="cpuChart" role="img" aria-label="CPU usage over time line chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- MEMORY CARD -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Memory (RAM)</span>
+            <span class="card-badge badge-ok" id="ram-badge">Healthy</span>
+          </div>
+          <div style="display: flex; gap: 20px; margin-bottom: 10px">
+            <div>
+              <div class="stat-val" id="ram-used">—</div>
+              <div class="stat-sub">Used of <span id="ram-total">—</span></div>
+            </div>
+            <div>
+              <div class="stat-val" style="font-size: 16px; color: #3fb950" id="ram-avail">—</div>
+              <div class="stat-sub">Available</div>
+            </div>
+          </div>
+          <div class="section-label">RAM</div>
+          <div class="bar-track">
+            <div class="bar-fill bar-purple" id="ram-bar" style="width: 0%"></div>
+          </div>
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              font-size: 10px;
+              color: #8b949e;
+              margin-top: 2px;
+            "
+          >
+            <span id="ram-pct">—</span><span id="ram-total-inline">—</span>
+          </div>
+          <div style="margin-top: 10px">
+            <div class="section-label">Swap</div>
+            <div class="bar-track">
+              <div class="bar-fill bar-amber" id="swap-bar" style="width: 0%"></div>
+            </div>
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+                color: #8b949e;
+                margin-top: 2px;
+              "
+            >
+              <span id="swap-pct">—</span><span id="swap-total">—</span>
+            </div>
+          </div>
+          <div style="margin-top: 12px">
+            <div class="section-label">Memory usage over time</div>
+            <div class="chart-wrap" style="height: 110px">
+              <canvas id="ramChart" role="img" aria-label="Memory usage over time line chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid3">
+        <!-- DISK CARD -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Disk</span>
+            <span class="card-badge badge-info" id="disk-badge">Active</span>
+          </div>
+          <div id="disk-list"></div>
+          <div style="margin-top: 12px; border-top: 0.5px solid #21262d; padding-top: 10px">
+            <div class="section-label">I/O Speed</div>
+            <div style="display: flex; gap: 16px; margin-top: 4px">
+              <div>
+                <div class="stat-val" style="font-size: 16px" id="disk-read">—</div>
+                <div class="stat-sub">Read</div>
+              </div>
+              <div>
+                <div class="stat-val" style="font-size: 16px" id="disk-write">—</div>
+                <div class="stat-sub">Write</div>
+              </div>
+            </div>
+            <div class="chart-wrap" style="height: 100px; margin-top: 8px">
+              <canvas id="diskChart" role="img" aria-label="Disk IO over time"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- NETWORK CARD -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Network</span>
+            <span class="card-badge badge-info" id="net-badge">Active</span>
+          </div>
+          <div style="display: flex; gap: 16px; margin-bottom: 12px">
+            <div>
+              <div class="net-label arrow-up">↑ Upload</div>
+              <div class="net-speed" id="net-up">—</div>
+            </div>
+            <div>
+              <div class="net-label arrow-dn">↓ Download</div>
+              <div class="net-speed" id="net-dn">—</div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="row-key">Total sent</span><span class="row-val" id="net-sent">—</span>
+          </div>
+          <div class="row">
+            <span class="row-key">Total received</span><span class="row-val" id="net-recv">—</span>
+          </div>
+          <div class="row">
+            <span class="row-key">Active connections</span><span class="row-val" id="net-conns">—</span>
+          </div>
+          <div class="chart-wrap" style="height: 100px; margin-top: 10px">
+            <canvas id="netChart" role="img" aria-label="Network upload and download over time"></canvas>
+          </div>
+          <div style="margin-top: 10px">
+            <div class="section-label">Per-process network</div>
+            <div class="conn-list" id="proc-net"></div>
+          </div>
+        </div>
+
+        <!-- HARDWARE INFO -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Hardware Info</span>
+          </div>
+          <div class="hw-grid">
+            <div class="hw-item">
+              <div class="hw-key">CPU</div>
+              <div class="hw-val" id="hw-cpu">—</div>
+            </div>
+            <div class="hw-item">
+              <div class="hw-key">Cores / Threads</div>
+              <div class="hw-val" id="hw-cores">—</div>
+            </div>
+            <div class="hw-item">
+              <div class="hw-key">RAM</div>
+              <div class="hw-val" id="hw-ram">—</div>
+            </div>
+            <div class="hw-item">
+              <div class="hw-key">OS</div>
+              <div class="hw-val" id="hw-os">—</div>
+            </div>
+            <div class="hw-item">
+              <div class="hw-key">GPU temp</div>
+              <div class="hw-val" id="hw-gpu-temp">—</div>
+            </div>
+            <div class="hw-item">
+              <div class="hw-key">CPU max temp</div>
+              <div class="hw-val" id="hw-cpu-max-temp">—</div>
+            </div>
+          </div>
+          <div style="margin-top: 12px; border-top: 0.5px solid #21262d; padding-top: 10px">
+            <div class="section-label">Active connections detail</div>
+            <div class="conn-list" id="conn-detail"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROCESS MONITOR -->
+      <div class="card" style="margin-bottom: 0">
+        <div class="card-header">
+          <span class="card-title">Process Monitor</span>
+          <span class="card-badge badge-info" id="proc-count">—</span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px">
+          <div class="search-wrap" style="flex: 1; margin-bottom: 0">
+            <input type="text" id="proc-search" placeholder="Search by name or PID…" />
+          </div>
+          <div class="tab-row" style="margin-bottom: 0">
+            <button class="tab-btn active" data-sort="cpu">CPU</button>
+            <button class="tab-btn" data-sort="mem">Memory</button>
+            <button class="tab-btn" data-sort="pid">PID</button>
+          </div>
+        </div>
+        <div style="overflow-x: auto">
+          <table class="proc-table">
+            <thead>
+              <tr>
+                <th>PID</th>
+                <th>Process</th>
+                <th>CPU %</th>
+                <th style="width: 120px">CPU bar</th>
+                <th>Mem MB</th>
+                <th style="width: 100px">Mem bar</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="proc-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <!-- CHATBOT WIDGET -->
+    <div id="chat-widget" class="chat-widget">
+      <div class="chat-header" id="chat-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="chat-icon">🤖</div>
+          <span style="font-weight:600; font-size:13px;">Tixres AI Assistant</span>
+        </div>
+        <button id="chat-toggle" class="chat-btn-min">—</button>
+      </div>
+      <div id="chat-body" class="chat-body" style="display: none;">
+        <div id="chat-messages" class="chat-messages">
+          <div class="msg bot">Hello! I'm your Tixres assistant. How can I help you today?</div>
+        </div>
+        <div class="chat-input-wrap">
+          <input type="text" id="chat-input" placeholder="Ask about guidance or metrics..." />
+          <button id="chat-send" class="chat-send-btn">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { requireAuth, getToken, renderUserPill, logout, getRole } from "./js/auth.js";
+      requireAuth("index.html");
+      renderUserPill("user-pill-container");
+      window.handleLogout = logout;
+      
+      const role = getRole();
+      if (role === 'admin') {
+        const adminNav = document.getElementById("nav-admin");
+        if (adminNav) adminNav.style.display = "inline";
+      }
+
+      // Store token for app.js to use
+      window.__tixres_token = getToken();
+    </script>
+    <script>
+      // If the ES-module app fails to load, show a visible hint without needing DevTools.
+      window.__tixres_started = false;
+      window.setTimeout(function () {
+        if (window.__tixres_started) return;
+        var bar = document.getElementById("warn-bar");
+        var text = document.getElementById("warn-text");
+        if (bar && text) {
+          text.textContent =
+            "UI JS failed to start. Check the browser console + Network tab for missing /js/*.js files, and ensure the WS server is running on :8765.";
+          bar.style.display = "flex";
+        }
+      }, 2000);
+    </script>
+    <script type="module" src="./js/app.js"></script>
+    <script type="module" src="./js/chat.js"></script>
+  </body>
+</html>

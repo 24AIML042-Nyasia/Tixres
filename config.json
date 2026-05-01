@@ -1,0 +1,25 @@
+{
+  "_comment": "Central URL / port configuration for the Tixres platform. Edit this file to change any host or port.",
+  "server": {
+    "host": "127.0.0.1",
+    "ws_port": 8765,
+    "ui_port": 8000
+  },
+  "chatbot": {
+    "host": "127.0.0.1",
+    "port": 8001
+  },
+  "celery": {
+    "broker_url": "redis://127.0.0.1:6379/0",
+    "result_backend": "redis://127.0.0.1:6379/1"
+  },
+  "database": {
+    "engine": "sqlite",
+    "host": "127.0.0.1",
+    "port": 5432,
+    "name": "Tixres",
+    "user": "postgres",
+    "password": "",
+    "sqlite_path": "server/data/agent_metrics.sqlite3"
+  }
+}

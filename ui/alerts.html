@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tixres - Alerts</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      .alert-grid { display: grid; gap: 10px; }
+      .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+      .summary-card { padding: 15px; border-radius: 8px; background: #161b22; border: 1px solid #30363d; text-align: center; }
+      .summary-val { font-size: 24px; font-weight: 600; margin-bottom: 5px; }
+      .summary-label { font-size: 12px; color: #8b949e; text-transform: uppercase; }
+      .alert-full-item { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+      .alert-info-col { flex: 1; }
+      .alert-time { font-size: 11px; color: #8b949e; margin-top: 5px; }
+      .nav-links { display: flex; gap: 20px; }
+      .nav-links a { color: #8b949e; text-decoration: none; font-size: 13px; transition: color .15s; }
+      .nav-links a:hover { color: #e6edf3; }
+      .nav-links a.active { color: #fff; font-weight: 600; }
+      .resolve-btn { background: #238636; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; }
+      .resolve-btn:hover { background: #2ea043; }
+      .resolve-btn:disabled { background: #21262d; cursor: default; color: #8b949e; }
+    </style>
+  </head>
+  <body>
+    <div class="dash">
+      <div class="topbar">
+        <div class="topbar-left" style="flex:1;">
+          <div style="display: flex; align-items: center; gap: 7px">
+            <div class="status-dot"></div>
+            <span class="logo">Tixres</span>
+          </div>
+          <span class="hostname">Alerts Management</span>
+          <nav class="nav-links" style="margin-left:16px;">
+            <a href="index.html">Dashboard</a>
+            <a href="alerts.html" class="active">Alerts</a>
+            <a href="incidents.html">Incidents</a>
+            <a href="guidance.html">Guidance</a>
+            <a href="rollups.html">Metrics</a>
+          </nav>
+        </div>
+        <div id="user-pill-container"></div>
+      </div>
+
+      <div class="summary-cards">
+        <div class="summary-card"><div class="summary-val" id="count-open">—</div><div class="summary-label">Open Alerts</div></div>
+        <div class="summary-card"><div class="summary-val" style="color:#f85149" id="count-high">—</div><div class="summary-label">High Severity</div></div>
+        <div class="summary-card"><div class="summary-val" style="color:#d29922" id="count-medium">—</div><div class="summary-label">Medium Severity</div></div>
+        <div class="summary-card"><div class="summary-val" id="count-resolved">—</div><div class="summary-label">Resolved</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Recent Alerts</span></div>
+        <div id="alerts-list" class="alert-grid">
+          <div class="alert-empty">Loading alerts...</div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { createWsClient } from "./js/ws.js";
+      import { $ } from "./js/utils.js";
+      import { requireAuth, getToken, renderUserPill, logout } from "./js/auth.js";
+      import { WS_URL } from "./js/config.js";
+
+      requireAuth("alerts.html");
+      renderUserPill("user-pill-container");
+      window.handleLogout = logout;
+
+      const token = getToken();
+
+      const ws = createWsClient(WS_URL, {
+        onOpen: () => {
+          ws.send({ event: "ui_subscribe", data: { token } });
+          ws.send({ event: "ui_get_alerts", data: { limit: 50 } });
+        },
+        onMessage: (msg) => {
+          if (msg.event === "ui_get_alerts" && msg.ok) {
+            renderAlerts(msg.data);
+          }
+          if (msg.event === "ui_resolve_alert" && msg.ok) {
+            ws.send({ event: "ui_get_alerts", data: { limit: 50 } });
+          }
+          if (msg.event === "ui_subscribe" && !msg.ok) {
+            sessionStorage.clear();
+            location.href = "login.html?next=alerts.html";
+          }
+        }
+      });
+
+
+      function renderAlerts(data) {
+        const { alerts, summary } = data;
+        $("#count-open").textContent = summary.open || 0;
+        $("#count-high").textContent = summary.high_open || 0;
+        $("#count-medium").textContent = summary.medium_open || 0;
+        $("#count-resolved").textContent = summary.resolved || 0;
+
+        const list = $("#alerts-list");
+        if (!alerts || alerts.length === 0) {
+          list.innerHTML = '<div class="alert-empty">No alerts found.</div>';
+          return;
+        }
+
+        list.innerHTML = alerts.map(a => `
+          <div class="alert-full-item severity-${a.severity}">
+            <div class="alert-info-col">
+              <div class="alert-title"><strong>${a.service}</strong>: ${a.anomaly_type.replace(/_/g, ' ')}</div>
+              <div class="alert-meta">Agent: ${a.agent_id} • Plugin: ${a.plugin} • Count: ${a.count}</div>
+              <div class="alert-time">Seen: ${a.first_seen} — ${a.last_seen}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="card-badge ${a.is_resolved ? 'badge-ok' : 'badge-danger'}">${a.is_resolved ? 'Resolved' : 'Active'}</div>
+              ${!a.is_resolved ? `<button class="resolve-btn" onclick="window.resolveAlert(${a.id})" style="padding:4px 8px; font-size:11px;">Resolve</button>` : ''}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      window.resolveAlert = (id) => {
+        ws.send({ event: "ui_resolve_alert", data: { alert_id: id } });
+      };
+
+      ws.connect();
+    </script>
+  </body>
+</html>

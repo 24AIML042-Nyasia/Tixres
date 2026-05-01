@@ -1,0 +1,12 @@
+{
+  "retention": {
+    "metric_numeric": 7,
+    "metric_json": 3,
+    "metric_log": 1
+  },
+  "rollups": {
+    "1m_bucket_seconds": 60,
+    "10m_bucket_seconds": 600,
+    "1h_bucket_seconds": 3600
+  }
+}

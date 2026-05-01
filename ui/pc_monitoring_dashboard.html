@@ -1,0 +1,477 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono,monospace)}
+.dash{background:#0d0f14;min-height:100vh;color:#c9d1d9;padding:16px;font-family:'SF Mono','Fira Code',monospace;font-size:12px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:0.5px solid #21262d}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.logo{font-size:13px;font-weight:500;color:#e6edf3;letter-spacing:0.5px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#3fb950;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.uptime{color:#8b949e;font-size:11px}
+.hostname{color:#58a6ff;font-size:11px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.card{background:#161b22;border:0.5px solid #21262d;border-radius:8px;padding:14px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:0.8px}
+.card-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500}
+.badge-ok{background:#1a3a1a;color:#3fb950}
+.badge-warn{background:#3a2800;color:#d29922}
+.badge-danger{background:#3a0000;color:#f85149}
+.badge-info{background:#0d2137;color:#58a6ff}
+.stat-val{font-size:22px;font-weight:500;color:#e6edf3;line-height:1}
+.stat-sub{font-size:10px;color:#8b949e;margin-top:4px}
+.bar-track{height:5px;background:#21262d;border-radius:3px;overflow:hidden;margin:6px 0}
+.bar-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.bar-blue{background:#1f6feb}
+.bar-green{background:#238636}
+.bar-amber{background:#9e6a03}
+.bar-red{background:#b91c1c}
+.bar-purple{background:#6e40c9}
+.bar-teal{background:#0e7490}
+.mini-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px}
+.core-box{background:#0d1117;border:0.5px solid #21262d;border-radius:4px;padding:6px;text-align:center}
+.core-label{font-size:9px;color:#8b949e;margin-bottom:3px}
+.core-val{font-size:11px;color:#e6edf3;font-weight:500}
+canvas{display:block;width:100%!important}
+.section-label{font-size:9px;color:#8b949e;margin-bottom:4px;text-transform:uppercase;letter-spacing:.6px}
+.row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid #161b22}
+.row:last-child{border-bottom:none}
+.row-key{color:#8b949e;font-size:11px}
+.row-val{color:#e6edf3;font-size:11px;font-weight:500}
+.disk-item{margin-bottom:10px}
+.disk-path{font-size:11px;color:#58a6ff;margin-bottom:3px}
+.disk-row{display:flex;justify-content:space-between;font-size:10px;color:#8b949e;margin-top:3px}
+.net-speed{font-size:18px;font-weight:500;color:#e6edf3}
+.net-label{font-size:10px;color:#8b949e}
+.arrow-up{color:#3fb950}
+.arrow-dn{color:#58a6ff}
+.proc-table{width:100%;border-collapse:collapse;font-size:11px}
+.proc-table th{color:#8b949e;font-weight:400;text-align:left;padding:4px 6px;border-bottom:0.5px solid #21262d;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.proc-table td{padding:5px 6px;border-bottom:0.5px solid #0d1117;color:#c9d1d9}
+.proc-table tr:hover td{background:#1c2128}
+.kill-btn{background:transparent;border:0.5px solid #3a0000;color:#f85149;border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer;font-family:inherit}
+.kill-btn:hover{background:#3a0000}
+.proc-name{color:#e6edf3;font-size:11px}
+.pid-tag{color:#8b949e;font-size:10px}
+.search-wrap{display:flex;gap:8px;margin-bottom:10px}
+.search-wrap input{flex:1;background:#0d1117;border:0.5px solid #21262d;border-radius:6px;color:#e6edf3;padding:6px 10px;font-size:11px;font-family:inherit;outline:none}
+.search-wrap input:focus{border-color:#388bfd}
+.tab-row{display:flex;gap:4px;margin-bottom:10px}
+.tab-btn{background:transparent;border:0.5px solid #21262d;border-radius:5px;color:#8b949e;padding:3px 10px;font-size:10px;cursor:pointer;font-family:inherit}
+.tab-btn.active{background:#21262d;color:#e6edf3;border-color:#388bfd}
+.alert-bar{background:#2d1b00;border:0.5px solid #9e6a03;border-radius:6px;padding:7px 10px;font-size:11px;color:#d29922;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.alert-dot{width:6px;height:6px;border-radius:50%;background:#d29922;flex-shrink:0}
+.hw-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.hw-item{background:#0d1117;border:0.5px solid #21262d;border-radius:5px;padding:8px}
+.hw-key{font-size:9px;color:#8b949e;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
+.hw-val{font-size:11px;color:#e6edf3}
+.temp-ring{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.interpret{font-size:10px;color:#8b949e;margin-top:6px;line-height:1.5}
+.interpret span{padding:1px 5px;border-radius:3px;font-size:9px;margin-left:4px}
+.int-ok{background:#1a3a1a;color:#3fb950}
+.int-warn{background:#3a2800;color:#d29922}
+.int-hot{background:#3a0000;color:#f85149}
+.conn-list{margin-top:8px}
+.conn-item{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid #161b22}
+.conn-proc{color:#58a6ff;font-size:10px}
+.conn-addr{color:#8b949e;font-size:10px}
+.conn-state{font-size:9px;padding:1px 5px;border-radius:3px;background:#1a3a1a;color:#3fb950}
+.minibar{height:3px;background:#21262d;border-radius:2px;overflow:hidden;margin-top:3px}
+.minibar-fill{height:100%;border-radius:2px}
+</style>
+
+<div class="dash">
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden">PC monitoring dashboard showing CPU, memory, disk, network, and process information with synthetic data</h2>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div style="display:flex;align-items:center;gap:7px">
+      <div class="status-dot"></div>
+      <span class="logo">Tixres</span>
+    </div>
+    <span class="hostname">DESKTOP-7X9KF2</span>
+    <span class="uptime">Uptime: 3d 14h 22m</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;color:#8b949e;font-size:11px">
+    <span id="clock"></span>
+    <span class="card-badge badge-ok">All systems normal</span>
+  </div>
+</div>
+
+<div id="warn-bar" class="alert-bar"><div class="alert-dot"></div>Disk /dev/sdb1 is at 89% capacity — consider cleanup</div>
+
+<div class="grid2">
+  <!-- CPU CARD -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">CPU</span>
+      <span class="card-badge badge-info" id="cpu-badge">Normal</span>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:16px;margin-bottom:10px">
+      <div>
+        <div class="stat-val" id="cpu-overall">0%</div>
+        <div class="stat-sub">Overall usage</div>
+      </div>
+      <div>
+        <div class="stat-val" style="font-size:16px" id="cpu-ghz">3.8 GHz</div>
+        <div class="stat-sub">Clock speed</div>
+      </div>
+      <div>
+        <div class="stat-val" style="font-size:16px;color:#f85149" id="cpu-temp">72°C</div>
+        <div class="stat-sub">Temperature</div>
+      </div>
+    </div>
+    <div class="bar-track"><div class="bar-fill bar-blue" id="cpu-bar" style="width:0%"></div></div>
+    <div class="interpret">
+      Interpretation: <span class="int-ok" id="cpu-interp">low load</span>
+    </div>
+    <div class="mini-grid" id="core-grid"></div>
+    <div style="margin-top:12px">
+      <div class="section-label">Usage over time</div>
+      <div style="position:relative;height:70px"><canvas id="cpuChart" role="img" aria-label="CPU usage over time line chart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- MEMORY CARD -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Memory (RAM)</span>
+      <span class="card-badge badge-ok">Healthy</span>
+    </div>
+    <div style="display:flex;gap:20px;margin-bottom:10px">
+      <div>
+        <div class="stat-val" id="ram-used">0 GB</div>
+        <div class="stat-sub">Used of <span id="ram-total">32 GB</span></div>
+      </div>
+      <div>
+        <div class="stat-val" style="font-size:16px;color:#3fb950" id="ram-avail">—</div>
+        <div class="stat-sub">Available</div>
+      </div>
+    </div>
+    <div class="section-label">RAM</div>
+    <div class="bar-track"><div class="bar-fill bar-purple" id="ram-bar" style="width:60%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#8b949e;margin-top:2px">
+      <span id="ram-pct">60%</span><span>32 GB</span>
+    </div>
+    <div style="margin-top:10px">
+      <div class="section-label">Swap</div>
+      <div class="bar-track"><div class="bar-fill bar-amber" id="swap-bar" style="width:22%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#8b949e;margin-top:2px">
+        <span id="swap-pct">22%</span><span>8 GB</span>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <div class="section-label">Usage over time</div>
+      <div style="position:relative;height:70px"><canvas id="ramChart" role="img" aria-label="RAM usage over time line chart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid3">
+  <!-- DISK CARD -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Disk</span>
+      <span class="card-badge badge-warn">Warning</span>
+    </div>
+    <div id="disk-list"></div>
+    <div style="margin-top:12px;border-top:0.5px solid #21262d;padding-top:10px">
+      <div class="section-label">I/O Speed</div>
+      <div style="display:flex;gap:16px;margin-top:4px">
+        <div><div class="stat-val" style="font-size:16px" id="disk-read">0 MB/s</div><div class="stat-sub">Read</div></div>
+        <div><div class="stat-val" style="font-size:16px" id="disk-write">0 MB/s</div><div class="stat-sub">Write</div></div>
+      </div>
+      <div style="position:relative;height:55px;margin-top:8px"><canvas id="diskChart" role="img" aria-label="Disk IO over time"></canvas></div>
+    </div>
+  </div>
+
+  <!-- NETWORK CARD -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Network</span>
+      <span class="card-badge badge-info">Active</span>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:12px">
+      <div>
+        <div class="net-label arrow-up">↑ Upload</div>
+        <div class="net-speed" id="net-up">0 KB/s</div>
+      </div>
+      <div>
+        <div class="net-label arrow-dn">↓ Download</div>
+        <div class="net-speed" id="net-dn">0 KB/s</div>
+      </div>
+    </div>
+    <div class="row"><span class="row-key">Total sent</span><span class="row-val" id="net-sent">2.4 GB</span></div>
+    <div class="row"><span class="row-key">Total received</span><span class="row-val" id="net-recv">18.7 GB</span></div>
+    <div class="row"><span class="row-key">Active connections</span><span class="row-val" id="net-conns">12</span></div>
+    <div style="position:relative;height:55px;margin-top:10px"><canvas id="netChart" role="img" aria-label="Network upload and download over time"></canvas></div>
+    <div style="margin-top:10px">
+      <div class="section-label">Per-process network</div>
+      <div class="conn-list" id="proc-net"></div>
+    </div>
+  </div>
+
+  <!-- HARDWARE INFO -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Hardware Info</span>
+    </div>
+    <div class="hw-grid">
+      <div class="hw-item"><div class="hw-key">CPU</div><div class="hw-val">Intel i9-13900K</div></div>
+      <div class="hw-item"><div class="hw-key">Cores / Threads</div><div class="hw-val">24C / 32T</div></div>
+      <div class="hw-item"><div class="hw-key">RAM</div><div class="hw-val">32 GB DDR5</div></div>
+      <div class="hw-item"><div class="hw-key">RAM speed</div><div class="hw-val">6000 MHz</div></div>
+      <div class="hw-item"><div class="hw-key">GPU</div><div class="hw-val">RTX 4090</div></div>
+      <div class="hw-item"><div class="hw-key">GPU VRAM</div><div class="hw-val">24 GB GDDR6X</div></div>
+      <div class="hw-item"><div class="hw-key">Mobo</div><div class="hw-val">ASUS ROG Z790</div></div>
+      <div class="hw-item"><div class="hw-key">OS</div><div class="hw-val">Windows 11 Pro</div></div>
+      <div class="hw-item"><div class="hw-key">GPU temp</div><div class="hw-val" style="color:#d29922">68°C</div></div>
+      <div class="hw-item"><div class="hw-key">CPU max temp</div><div class="hw-val" style="color:#f85149">82°C</div></div>
+    </div>
+    <div style="margin-top:12px;border-top:0.5px solid #21262d;padding-top:10px">
+      <div class="section-label">Active connections detail</div>
+      <div class="conn-list">
+        <div class="conn-item"><span class="conn-proc">chrome.exe</span><span class="conn-addr">142.250.80.14:443</span><span class="conn-state">ESTABLISHED</span></div>
+        <div class="conn-item"><span class="conn-proc">discord.exe</span><span class="conn-addr">66.22.202.31:443</span><span class="conn-state">ESTABLISHED</span></div>
+        <div class="conn-item"><span class="conn-proc">steam.exe</span><span class="conn-addr">104.64.179.1:80</span><span class="conn-state">ESTABLISHED</span></div>
+        <div class="conn-item"><span class="conn-proc">sshd</span><span class="conn-addr">192.168.1.5:22</span><span class="conn-state">LISTEN</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROCESS MONITOR -->
+<div class="card" style="margin-bottom:0">
+  <div class="card-header">
+    <span class="card-title">Process Monitor</span>
+    <span class="card-badge badge-info" id="proc-count">48 processes</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+    <div class="search-wrap" style="flex:1;margin-bottom:0">
+      <input type="text" id="proc-search" placeholder="Search by name or PID...">
+    </div>
+    <div class="tab-row" style="margin-bottom:0">
+      <button class="tab-btn active" onclick="sortProcs('cpu',this)">CPU</button>
+      <button class="tab-btn" onclick="sortProcs('mem',this)">Memory</button>
+      <button class="tab-btn" onclick="sortProcs('pid',this)">PID</button>
+    </div>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="proc-table">
+      <thead><tr>
+        <th>PID</th><th>Process</th><th>CPU %</th><th style="width:120px">CPU bar</th>
+        <th>Mem MB</th><th style="width:100px">Mem bar</th>
+        <th>Status</th><th>Action</th>
+      </tr></thead>
+      <tbody id="proc-tbody"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const rnd = (a,b) => Math.round(a + Math.random()*(b-a));
+const rndF = (a,b,d=1) => parseFloat((a + Math.random()*(b-a)).toFixed(d));
+
+const histLen = 30;
+const cpuHist = Array(histLen).fill(40);
+const ramHist = Array(histLen).fill(60);
+const netUpHist = Array(histLen).fill(200);
+const netDnHist = Array(histLen).fill(800);
+const diskRHist = Array(histLen).fill(50);
+const diskWHist = Array(histLen).fill(30);
+const labels = Array(histLen).fill('');
+
+let sortKey = 'cpu';
+let filterText = '';
+
+const PROCS = [
+  {pid:1204,name:'chrome.exe',cpu:18.4,mem:1240,status:'running'},
+  {pid:3892,name:'Photoshop.exe',cpu:12.1,mem:2100,status:'running'},
+  {pid:7712,name:'vscode.exe',cpu:8.7,mem:820,status:'running'},
+  {pid:512,name:'System',cpu:6.2,mem:240,status:'running'},
+  {pid:4420,name:'node.exe',cpu:5.8,mem:380,status:'running'},
+  {pid:9201,name:'discord.exe',cpu:4.3,mem:540,status:'running'},
+  {pid:2048,name:'steam.exe',cpu:3.9,mem:640,status:'running'},
+  {pid:1100,name:'antivirus.exe',cpu:3.1,mem:310,status:'running'},
+  {pid:6630,name:'explorer.exe',cpu:2.4,mem:190,status:'running'},
+  {pid:880,name:'svchost.exe',cpu:1.8,mem:120,status:'running'},
+  {pid:3300,name:'python.exe',cpu:1.2,mem:280,status:'sleeping'},
+  {pid:7000,name:'nvidia-smi',cpu:0.8,mem:85,status:'running'},
+  {pid:2220,name:'git.exe',cpu:0.5,mem:60,status:'sleeping'},
+  {pid:5510,name:'SearchIndex',cpu:0.3,mem:430,status:'running'},
+  {pid:1990,name:'firefox.exe',cpu:0.2,mem:900,status:'sleeping'},
+];
+
+function buildCores(){
+  const g=$('core-grid');g.innerHTML='';
+  for(let i=0;i<8;i++){
+    const v=rnd(20,85);
+    const col=v>75?'#f85149':v>50?'#d29922':'#1f6feb';
+    g.innerHTML+=`<div class="core-box"><div class="core-label">C${i}</div><div class="core-val" style="color:${col}">${v}%</div><div class="minibar"><div class="minibar-fill" style="width:${v}%;background:${col}"></div></div></div>`;
+  }
+}
+
+function buildDisks(){
+  const disks=[
+    {path:'/dev/sda1',mount:'C:',used:180,total:500,color:'bar-blue'},
+    {path:'/dev/sdb1',mount:'D:',used:890,total:1000,color:'bar-red'},
+    {path:'/dev/sdc1',mount:'E:',used:220,total:2000,color:'bar-green'},
+  ];
+  const el=$('disk-list');el.innerHTML='';
+  disks.forEach(d=>{
+    const pct=Math.round(d.used/d.total*100);
+    const warn=pct>=85;
+    const barClass=warn?'bar-red':pct>60?'bar-amber':'bar-green';
+    el.innerHTML+=`<div class="disk-item"><div class="disk-path">${d.path} <span style="color:#8b949e">(${d.mount})</span>${warn?'<span class="card-badge badge-warn" style="margin-left:6px;font-size:9px">Low space</span>':''}</div><div class="bar-track"><div class="bar-fill ${barClass}" style="width:${pct}%"></div></div><div class="disk-row"><span>${d.used} GB used</span><span>${pct}%</span><span>${d.total} GB</span></div></div>`;
+  });
+}
+
+function buildProcNet(){
+  const items=[
+    {proc:'chrome.exe',rx:'1.2 MB/s',tx:'120 KB/s'},
+    {proc:'steam.exe',rx:'380 KB/s',tx:'40 KB/s'},
+    {proc:'discord.exe',rx:'60 KB/s',tx:'25 KB/s'},
+  ];
+  const el=$('proc-net');el.innerHTML='';
+  items.forEach(i=>{
+    el.innerHTML+=`<div class="conn-item"><span class="conn-proc">${i.proc}</span><span class="conn-addr arrow-dn">↓ ${i.rx}</span><span class="conn-addr arrow-up">↑ ${i.tx}</span></div>`;
+  });
+}
+
+function renderProcs(){
+  let data=[...PROCS];
+  if(filterText) data=data.filter(p=>p.name.toLowerCase().includes(filterText)||String(p.pid).includes(filterText));
+  data.sort((a,b)=>sortKey==='pid'?a.pid-b.pid:b[sortKey]-a[sortKey]);
+  const tb=$('proc-tbody');tb.innerHTML='';
+  data.forEach(p=>{
+    const cpuBar=Math.min(p.cpu*4,100);
+    const memBar=Math.min(p.mem/25,100);
+    const cpuCol=p.cpu>15?'#f85149':p.cpu>8?'#d29922':'#1f6feb';
+    const statusCol=p.status==='running'?'#3fb950':'#8b949e';
+    tb.innerHTML+=`<tr>
+      <td class="pid-tag">${p.pid}</td>
+      <td class="proc-name">${p.name}</td>
+      <td style="color:${cpuCol};font-weight:500">${p.cpu.toFixed(1)}%</td>
+      <td><div class="bar-track" style="margin:0"><div class="bar-fill" style="width:${cpuBar}%;background:${cpuCol}"></div></div></td>
+      <td>${p.mem}</td>
+      <td><div class="bar-track" style="margin:0"><div class="bar-fill bar-purple" style="width:${memBar}%"></div></div></td>
+      <td><span style="color:${statusCol};font-size:10px">${p.status}</span></td>
+      <td><button class="kill-btn" onclick="killProc(${p.pid},'${p.name}')">Kill</button></td>
+    </tr>`;
+  });
+}
+
+function killProc(pid,name){
+  if(confirm(`Kill process ${name} (PID ${pid})?`)){
+    const i=PROCS.findIndex(p=>p.pid===pid);
+    if(i>-1){PROCS.splice(i,1);renderProcs();$('proc-count').textContent=PROCS.length+' processes';}
+  }
+}
+
+function sortProcs(key,btn){
+  sortKey=key;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderProcs();
+}
+
+$('proc-search').addEventListener('input',e=>{filterText=e.target.value.toLowerCase();renderProcs();});
+
+function mkChart(id,datasets,yMax){
+  return new Chart($(id),{
+    type:'line',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{
+        x:{display:false},
+        y:{display:false,min:0,max:yMax||100}
+      },
+      elements:{point:{radius:0},line:{tension:0.4,borderWidth:1.5}}
+    }
+  });
+}
+
+const cpuChart=mkChart('cpuChart',[{data:cpuHist,borderColor:'#1f6feb',fill:true,backgroundColor:'rgba(31,111,235,.12)'}]);
+const ramChart=mkChart('ramChart',[{data:ramHist,borderColor:'#6e40c9',fill:true,backgroundColor:'rgba(110,64,201,.12)'}]);
+const netChart=mkChart('netChart',[
+  {data:netUpHist,borderColor:'#3fb950',fill:false},
+  {data:netDnHist,borderColor:'#58a6ff',fill:false}
+],2000);
+const diskChart=mkChart('diskChart',[
+  {data:diskRHist,borderColor:'#58a6ff',fill:false},
+  {data:diskWHist,borderColor:'#d29922',fill:false}
+],200);
+
+function push(arr,val){arr.shift();arr.push(val);}
+
+function tick(){
+  const cpu=rnd(28,72);
+  const ram=rndF(55,68);
+  const swapPct=rndF(18,28);
+  const ghz=rndF(3.4,4.2);
+  const temp=rnd(65,82);
+  const diskR=rnd(20,180);
+  const diskW=rnd(10,120);
+  const netUp=rnd(50,600);
+  const netDn=rnd(200,2000);
+
+  $('cpu-overall').textContent=cpu+'%';
+  $('cpu-bar').style.width=cpu+'%';
+  $('cpu-bar').className='bar-fill '+(cpu>80?'bar-red':cpu>60?'bar-amber':'bar-blue');
+  $('cpu-ghz').textContent=ghz+' GHz';
+  $('cpu-temp').textContent=temp+'°C';
+  $('cpu-temp').style.color=temp>80?'#f85149':temp>70?'#d29922':'#3fb950';
+  const cLabel=cpu>70?'high load':cpu>45?'moderate load':'low load';
+  const cBadge=cpu>70?'badge-danger':cpu>45?'badge-warn':'badge-info';
+  $('cpu-interp').textContent=cLabel;
+  $('cpu-interp').className=cpu>70?'int-hot':cpu>45?'int-warn':'int-ok';
+  $('cpu-badge').textContent=cpu>70?'High':cpu>45?'Moderate':'Normal';
+  $('cpu-badge').className='card-badge '+(cpu>70?'badge-danger':cpu>45?'badge-warn':'badge-info');
+
+  const ramUsed=(ram/100*32).toFixed(1);
+  const ramAvail=(32-(ram/100*32)).toFixed(1);
+  $('ram-used').textContent=ramUsed+' GB';
+  $('ram-avail').textContent=ramAvail+' GB';
+  $('ram-bar').style.width=ram+'%';
+  $('ram-pct').textContent=Math.round(ram)+'%';
+  $('swap-bar').style.width=swapPct+'%';
+  $('swap-pct').textContent=Math.round(swapPct)+'%';
+
+  $('disk-read').textContent=diskR+' MB/s';
+  $('disk-write').textContent=diskW+' MB/s';
+
+  const fmt=v=>v>=1000?(v/1000).toFixed(1)+' MB/s':v+' KB/s';
+  $('net-up').textContent=fmt(netUp);
+  $('net-dn').textContent=fmt(netDn);
+
+  push(cpuHist,cpu);push(ramHist,ram);
+  push(netUpHist,netUp/20);push(netDnHist,netDn/20);
+  push(diskRHist,diskR);push(diskWHist,diskW);
+
+  cpuChart.update('none');ramChart.update('none');
+  netChart.update('none');diskChart.update('none');
+
+  buildCores();
+
+  PROCS.forEach(p=>{p.cpu=Math.max(0.1,p.cpu+rndF(-1.5,1.5,1));p.cpu=Math.min(p.cpu,35);});
+  renderProcs();
+}
+
+function clock(){
+  $('clock').textContent=new Date().toLocaleTimeString();
+}
+
+buildDisks();buildProcNet();renderProcs();
+tick();
+setInterval(tick,1500);
+setInterval(clock,1000);
+clock();
+</script>

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tixres - Incidents</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      .incident-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; margin-bottom: 15px; position: relative; overflow: hidden; }
+      .incident-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+      .incident-meta { font-size: 12px; color: #8b949e; display: flex; gap: 15px; margin-top: 8px; flex-wrap: wrap; }
+      .incident-id { font-family: monospace; color: #58a6ff; font-size: 11px; }
+      .resolve-btn { background: #238636; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; }
+      .resolve-btn:hover { background: #2ea043; }
+      .resolve-btn:disabled { background: #21262d; cursor: default; color: #8b949e; }
+      .severity-stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+      .stripe-HIGH { background: #f85149; }
+      .stripe-MEDIUM { background: #d29922; }
+      .stripe-LOW { background: #3fb950; }
+      .nav-links { display: flex; gap: 20px; }
+      .nav-links a { color: #8b949e; text-decoration: none; font-size: 13px; transition: color .15s; }
+      .nav-links a:hover { color: #e6edf3; }
+      .nav-links a.active { color: #fff; font-weight: 600; }
+      .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+      .summary-card { padding: 15px; border-radius: 8px; background: #161b22; border: 1px solid #30363d; text-align: center; }
+      .summary-val { font-size: 24px; font-weight: 600; margin-bottom: 5px; }
+      .summary-label { font-size: 12px; color: #8b949e; text-transform: uppercase; }
+      .host-chip { font-size: 11px; background: #21262d; border: 1px solid #30363d; border-radius: 4px; padding: 2px 6px; font-family: monospace; color: #58a6ff; }
+    </style>
+  </head>
+  <body>
+    <div class="dash">
+      <div class="topbar">
+        <div class="topbar-left" style="flex:1;">
+          <div style="display:flex; align-items:center; gap:7px;">
+            <div class="status-dot"></div>
+            <span class="logo">Tixres</span>
+          </div>
+          <span class="hostname">Incident Management</span>
+          <nav class="nav-links" style="margin-left:16px;">
+            <a href="index.html">Dashboard</a>
+            <a href="alerts.html">Alerts</a>
+            <a href="incidents.html" class="active">Incidents</a>
+            <a href="guidance.html">Guidance</a>
+            <a href="rollups.html">Metrics</a>
+          </nav>
+        </div>
+        <div id="user-pill-container"></div>
+      </div>
+
+      <div class="summary-cards">
+        <div class="summary-card"><div class="summary-val" id="inc-open">—</div><div class="summary-label">Open Incidents</div></div>
+        <div class="summary-card"><div class="summary-val" style="color:#f85149" id="inc-high">—</div><div class="summary-label">High Impact</div></div>
+        <div class="summary-card"><div class="summary-val" id="inc-resolved">—</div><div class="summary-label">Resolved Today</div></div>
+      </div>
+
+      <div id="incidents-list">
+        <div class="alert-empty">Loading incidents…</div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { createWsClient } from "./js/ws.js";
+      import { $ } from "./js/utils.js";
+      import { requireAuth, getToken, getUsername, getRole, renderUserPill, logout } from "./js/auth.js";
+      import { WS_URL } from "./js/config.js";
+
+      requireAuth("incidents.html");
+      renderUserPill("user-pill-container");
+      window.handleLogout = logout;
+
+      const token = getToken();
+
+      const ws = createWsClient(WS_URL, {
+        onOpen: () => {
+          ws.send({ event: "ui_subscribe", data: { token } });
+          ws.send({ event: "ui_get_incidents", data: { limit: 100 } });
+        },
+        onMessage: (msg) => {
+          if (msg.event === "ui_get_incidents" && msg.ok) renderIncidents(msg.data);
+          if (msg.event === "ui_resolve_incident" && msg.ok) {
+            ws.send({ event: "ui_get_incidents", data: { limit: 100 } });
+          }
+          if (msg.event === "ui_subscribe" && !msg.ok) {
+            // Token rejected
+            sessionStorage.clear();
+            location.href = "login.html?next=incidents.html";
+          }
+        }
+      });
+
+
+      function escHtml(str) {
+        return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      }
+
+      function renderIncidents(data) {
+        const { incidents, summary } = data;
+        document.getElementById("inc-open").textContent     = summary.open || 0;
+        document.getElementById("inc-high").textContent     = summary.high_open || 0;
+        document.getElementById("inc-resolved").textContent = summary.resolved || 0;
+
+        const list = document.getElementById("incidents-list");
+        if (!incidents || incidents.length === 0) {
+          list.innerHTML = '<div class="alert-empty">No incidents found.</div>';
+          return;
+        }
+
+        list.innerHTML = incidents.map(inc => `
+          <div class="incident-card">
+            <div class="severity-stripe stripe-${inc.severity}"></div>
+            <div class="incident-header">
+              <div>
+                <div style="font-size:18px; font-weight:600;">${escHtml(inc.anomaly_type.replace(/_/g,' '))} on ${escHtml(inc.service)}</div>
+                <div class="incident-id">KEY: ${escHtml(inc.simple_key || inc.incident_key.substring(0,8))}</div>
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <a href="incident_guidance.html?incident_id=${inc.id}"
+                   class="resolve-btn"
+                   style="background:#1f6feb; text-decoration:none; display:flex; align-items:center;">
+                  Guidance
+                </a>
+                <button class="resolve-btn" data-id="${inc.id}" ${inc.status === 'resolved' ? 'disabled' : ''}>
+                  ${inc.status === 'resolved' ? 'Resolved' : 'Resolve'}
+                </button>
+              </div>
+            </div>
+            <div class="incident-meta">
+              <span><strong>Severity:</strong> ${escHtml(inc.severity)}</span>
+              <span><strong>Host:</strong> <span class="host-chip">${escHtml(inc.hostname || inc.host_id)}</span></span>
+              <span><strong>Alerts:</strong> ${inc.alert_count}</span>
+              <span><strong>Last Seen:</strong> ${escHtml(inc.last_seen)}</span>
+            </div>
+          </div>
+        `).join('');
+
+        list.querySelectorAll('.resolve-btn[data-id]').forEach(btn => {
+          btn.onclick = () => {
+            const id = parseInt(btn.dataset.id);
+            ws.send({ event: "ui_resolve_incident", data: { incident_id: id } });
+          };
+        });
+      }
+
+      ws.connect();
+    </script>
+  </body>
+</html>

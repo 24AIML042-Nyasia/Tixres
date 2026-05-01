@@ -1,0 +1,49 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+
+# Database
+server/data/*.sqlite3
+*.sqlite3
+celerybeat-schedule*
+
+# Logs
+*.log
+
+# Project specific
+server/plugin_defaults.json.tmp
+server/plugins/*.tmp
+.env
+.tmp/
+dir700/
+scratch/
+release/

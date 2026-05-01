@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Tixres – Admin Panel</title>
+  <link rel="stylesheet" href="./styles.css"/>
+  <style>
+    :root{--accent:#1f6feb;--danger:#f85149;--ok:#3fb950;--warn:#d29922;--bg2:#0d1117;--bg3:#161b22;--border:#30363d;--muted:#8b949e;--text:#e6edf3;}
+    body{background:var(--bg2);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+    .admin-wrap{max-width:1100px;margin:0 auto;padding:24px 16px;}
+    .tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:24px;}
+    .tab-btn{background:none;border:none;color:var(--muted);padding:10px 18px;cursor:pointer;font-size:13px;border-bottom:2px solid transparent;transition:.2s;}
+    .tab-btn.active{color:var(--text);border-bottom-color:var(--accent);font-weight:600;}
+    .tab-pane{display:none;}.tab-pane.active{display:block;}
+    .card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+    .card-title{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+    input,select{background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-size:13px;outline:none;width:100%;}
+    input:focus,select:focus{border-color:var(--accent);}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+    .btn{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;}
+    .btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{opacity:.85;}
+    .btn-success{background:#238636;color:#fff;}.btn-success:hover{background:#2ea043;}
+    .btn-danger{background:#b91c1c;color:#fff;}.btn-danger:hover{background:var(--danger);}
+    .btn-sm{padding:4px 10px;font-size:12px;}
+    .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;text-transform:uppercase;}
+    .badge-high{background:rgba(248,81,73,.15);color:#f85149;}
+    .badge-medium{background:rgba(210,153,34,.15);color:#d29922;}
+    .badge-low{background:rgba(63,185,80,.15);color:#3fb950;}
+    .badge-admin{background:rgba(210,153,34,.2);color:#d29922;}
+    .badge-user{background:rgba(31,111,235,.15);color:#58a6ff;}
+    table{width:100%;border-collapse:collapse;}
+    th{text-align:left;padding:10px 12px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+    td{padding:12px;border-bottom:1px solid #21262d;vertical-align:top;font-size:13px;}
+    .schedule-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #21262d;}
+    .schedule-row:last-child{border-bottom:none;}
+    .schedule-label{flex:1;font-size:13px;}
+    .schedule-unit{color:var(--muted);font-size:12px;min-width:50px;}
+    .schedule-input{width:80px;text-align:center;}
+    .toast{position:fixed;bottom:24px;right:24px;background:#23272d;border:1px solid var(--border);border-radius:8px;padding:12px 18px;font-size:13px;z-index:999;opacity:0;transform:translateY(8px);transition:.25s;}
+    .toast.show{opacity:1;transform:none;}
+    .toast.ok{border-left:3px solid var(--ok);}
+    .toast.err{border-left:3px solid var(--danger);}
+    .assign-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+    .chip{display:inline-flex;align-items:center;gap:5px;background:rgba(31,111,235,.1);border:1px solid rgba(31,111,235,.3);padding:2px 8px;border-radius:10px;font-size:12px;color:#58a6ff;}
+    .chip button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0;line-height:1;}
+    .chip button:hover{color:var(--danger);}
+    .assign-form{display:flex;gap:8px;margin-top:8px;}
+    .assign-form input{flex:1;}
+    .seed-result{margin-top:12px;padding:10px 14px;border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg2);border:1px solid var(--border);display:none;max-height:160px;overflow:auto;}
+    nav.nav-links a{color:var(--muted);text-decoration:none;font-size:13px;transition:.15s;}
+    nav.nav-links a:hover{color:var(--text);}
+    nav.nav-links a.active{color:#fff;font-weight:600;}
+    nav.nav-links{display:flex;gap:20px;}
+  </style>
+</head>
+<body>
+<div class="dash">
+  <div class="topbar">
+    <div class="topbar-left" style="flex:1;">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div class="status-dot"></div>
+        <span class="logo">Tixres</span>
+      </div>
+      <nav class="nav-links" style="margin-left:16px;">
+        <a href="index.html">Dashboard</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="incidents.html">Incidents</a>
+        <a href="guidance.html">Guidance</a>
+        <a href="rollups.html">Metrics</a>
+        <a href="admin.html" class="active">Admin</a>
+      </nav>
+    </div>
+    <div id="user-pill-container"></div>
+  </div>
+
+  <div class="admin-wrap">
+    <h1 style="font-size:22px;font-weight:700;margin-bottom:20px;">⚙️ Admin Panel</h1>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="scheduler">🕐 Task Scheduler</button>
+      <button class="tab-btn" data-tab="seed">🧪 Alert Seeder</button>
+      <button class="tab-btn" data-tab="users">👥 User Management</button>
+      <button class="tab-btn" data-tab="agents">📡 Agents</button>
+    </div>
+
+    <!-- ── Task Scheduler ── -->
+    <div class="tab-pane active" id="tab-scheduler">
+      <div class="card">
+        <div class="card-title">🕐 Redis / Celery Task Frequency</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">
+          Configure how frequently background tasks run. Changes are persisted to
+          <code>plugin_defaults.json</code> and picked up by the Celery beat scheduler.
+        </p>
+        <div id="schedule-rows">
+          <div style="color:var(--muted);font-size:13px;">Loading schedule…</div>
+        </div>
+        <div style="margin-top:20px;display:flex;gap:10px;">
+          <button class="btn btn-primary" id="btn-save-schedule">💾 Save Schedule</button>
+          <button class="btn" style="background:#21262d;color:var(--text);" id="btn-reset-schedule">↺ Reset Defaults</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Alert Seeder ── -->
+    <div class="tab-pane" id="tab-seed">
+      <div class="card">
+        <div class="card-title">🧪 Seed Alerts via Dummy Agent</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">
+          Inject synthetic alerts through the same pipeline detectors use.
+          Each seeded alert auto-creates or updates an incident for end-to-end testing.
+        </p>
+        <div class="grid3" style="margin-bottom:16px;">
+          <div>
+            <label>Anomaly Type</label>
+            <select id="seed-anomaly">
+              <option value="statistical_anomaly">statistical_anomaly</option>
+              <option value="cpu_temp_high">cpu_temp_high</option>
+              <option value="ram_usage_high">ram_usage_high</option>
+              <option value="disk_usage_high">disk_usage_high</option>
+              <option value="network_io_spike">network_io_spike</option>
+              <option value="cpu_usage_jump">cpu_usage_jump</option>
+              <option value="cpu_usage_sustained">cpu_usage_sustained</option>
+              <option value="disk_latency_high">disk_latency_high</option>
+              <option value="disk_io_spike">disk_io_spike</option>
+              <option value="ram_continuous_increase">ram_continuous_increase</option>
+            </select>
+          </div>
+          <div>
+            <label>Severity</label>
+            <select id="seed-severity">
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+          </div>
+          <div>
+            <label>Service / Metric Name</label>
+            <input id="seed-service" type="text" value="dummy.cpu_usage" placeholder="e.g. cpu_v1.0.0.usage_overall"/>
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label>Target Agent (hostname or leave blank for dummy)</label>
+          <select id="seed-agent">
+            <option value="">— dummy-seed-agent (auto-created) —</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-success" id="btn-seed">⚡ Seed Alert</button>
+          <button class="btn btn-danger btn-sm" id="btn-seed-burst" style="padding:8px 16px;">💥 Burst ×5</button>
+        </div>
+        <div class="seed-result" id="seed-result"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Seed Log</div>
+        <table>
+          <thead><tr><th>Time</th><th>Anomaly</th><th>Severity</th><th>Service</th><th>Alert ID</th><th>Incident ID</th></tr></thead>
+          <tbody id="seed-log"><tr><td colspan="6" style="color:var(--muted);text-align:center;">No seeds yet.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── User Management ── -->
+    <div class="tab-pane" id="tab-users">
+      <div class="card">
+        <div class="card-title">👥 Users &amp; Agent Assignments</div>
+        <table id="users-table">
+          <thead><tr><th>User</th><th>Role</th><th>Assigned Agents</th></tr></thead>
+          <tbody><tr><td colspan="3" style="text-align:center;color:var(--muted);">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Agents ── -->
+    <div class="tab-pane" id="tab-agents">
+      <div class="card">
+        <div class="card-title">📡 Registered Agents</div>
+        <div id="agents-list" style="display:flex;flex-wrap:wrap;gap:8px;">
+          <div style="color:var(--muted);font-size:13px;">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createWsClient } from "./js/ws.js";
+import { requireAuth, getToken, getRole, renderUserPill, logout } from "./js/auth.js";
+import { WS_URL } from "./js/config.js";
+
+const token = requireAuth("admin.html");
+const role = getRole();
+if (role !== 'admin') { alert("Access Denied: Admin role required."); location.href = "index.html"; }
+renderUserPill("user-pill-container");
+window.handleLogout = logout;
+
+// ── Tab switching ────────────────────────────────────────
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ── Toast ─────────────────────────────────────────────────
+function toast(msg, ok = true) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast show " + (ok ? "ok" : "err");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+// ── Schedule config ───────────────────────────────────────
+const SCHEDULE_DEFS = [
+  { key: "expire_alerts_minutes",    label: "Expire Alerts",          unit: "min",  min: 1,  max: 60  },
+  { key: "expire_incidents_minutes", label: "Expire Incidents",       unit: "min",  min: 1,  max: 120 },
+  { key: "retention_cleanup_hours",  label: "Retention Cleanup",      unit: "hrs",  min: 1,  max: 24  },
+  { key: "rollup_1m_minutes",        label: "1m Rollup",              unit: "min",  min: 1,  max: 10  },
+  { key: "rollup_10m_minutes",       label: "10m Rollup",             unit: "min",  min: 5,  max: 60  },
+  { key: "rollup_1h_minutes",        label: "1h Rollup",              unit: "min",  min: 30, max: 120 },
+];
+const SCHEDULE_DEFAULTS = {
+  expire_alerts_minutes: 5,
+  expire_incidents_minutes: 10,
+  retention_cleanup_hours: 1,
+  rollup_1m_minutes: 1,
+  rollup_10m_minutes: 10,
+  rollup_1h_minutes: 60,
+};
+
+function renderSchedule(data) {
+  const container = document.getElementById("schedule-rows");
+  container.innerHTML = SCHEDULE_DEFS.map(def => `
+    <div class="schedule-row">
+      <div class="schedule-label">
+        <strong>${def.label}</strong>
+        <div style="font-size:11px;color:var(--muted);">key: ${def.key}</div>
+      </div>
+      <input class="schedule-input" type="number" id="sch-${def.key}"
+        min="${def.min}" max="${def.max}" step="1"
+        value="${data[def.key] ?? SCHEDULE_DEFAULTS[def.key]}"/>
+      <span class="schedule-unit">${def.unit}</span>
+    </div>
+  `).join("");
+}
+
+function collectSchedule() {
+  const out = {};
+  SCHEDULE_DEFS.forEach(def => {
+    const v = parseFloat(document.getElementById("sch-" + def.key)?.value);
+    if (!isNaN(v) && v > 0) out[def.key] = v;
+  });
+  return out;
+}
+
+document.getElementById("btn-reset-schedule").addEventListener("click", () => {
+  renderSchedule(SCHEDULE_DEFAULTS);
+});
+
+document.getElementById("btn-save-schedule").addEventListener("click", () => {
+  ws.send({ event: "ui_set_task_schedule", data: { token, schedule: collectSchedule() } });
+});
+
+// ── Seed log ──────────────────────────────────────────────
+const seedLog = [];
+function addSeedLog(alert) {
+  const now = new Date().toLocaleTimeString();
+  seedLog.unshift({ time: now, alert });
+  const tbody = document.querySelector("#seed-log");
+  tbody.innerHTML = seedLog.slice(0, 20).map(e => `
+    <tr>
+      <td style="color:var(--muted)">${e.time}</td>
+      <td><code style="font-size:11px">${e.alert.anomaly_type ?? "–"}</code></td>
+      <td><span class="badge badge-${(e.alert.severity||"").toLowerCase()}">${e.alert.severity ?? "–"}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${e.alert.service ?? "–"}</td>
+      <td>${e.alert.id ?? "–"}</td>
+      <td>${e.alert.incident_id ?? "–"}</td>
+    </tr>
+  `).join("");
+}
+
+function doSeed() {
+  const payload = {
+    token,
+    anomaly_type: document.getElementById("seed-anomaly").value,
+    severity: document.getElementById("seed-severity").value,
+    service: document.getElementById("seed-service").value.trim() || "dummy.service",
+    agent_id: document.getElementById("seed-agent").value || "dummy-seed-agent",
+  };
+  ws.send({ event: "ui_seed_alert", data: payload });
+}
+
+document.getElementById("btn-seed").addEventListener("click", doSeed);
+document.getElementById("btn-seed-burst").addEventListener("click", async () => {
+  for (let i = 0; i < 5; i++) {
+    doSeed();
+    await new Promise(r => setTimeout(r, 200));
+  }
+});
+
+// ── WS ───────────────────────────────────────────────────
+const ws = createWsClient(WS_URL, {
+  onOpen: () => {
+    ws.send({ event: "ui_subscribe", data: { token } });
+    ws.send({ event: "ui_get_task_schedule", data: { token } });
+    ws.send({ event: "ui_list_users", data: { token } });
+  },
+  onMessage: (msg) => {
+    if (msg.event === "ui_subscribe" && msg.ok) {
+      renderAgents(msg.data.agents || []);
+      // Populate seed agent dropdown
+      const sel = document.getElementById("seed-agent");
+      (msg.data.agents || []).forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a.agent_id;
+        opt.textContent = `${a.hostname} (${a.agent_id.slice(0,8)}…)`;
+        sel.appendChild(opt);
+      });
+    }
+    if (msg.event === "ui_get_task_schedule" && msg.ok) {
+      renderSchedule(msg.data.schedule || {});
+    }
+    if (msg.event === "ui_set_task_schedule") {
+      if (msg.ok) toast("✅ Schedule saved successfully");
+      else toast("❌ " + (msg.error || "Failed"), false);
+    }
+    if (msg.event === "ui_seed_alert") {
+      if (msg.ok) {
+        const a = msg.data.alert || {};
+        addSeedLog(a);
+        const el = document.getElementById("seed-result");
+        el.style.display = "block";
+        el.textContent = JSON.stringify(a, null, 2);
+        toast(`✅ Alert seeded (ID:${a.id}, Incident:${a.incident_id ?? "–"})`);
+      } else {
+        toast("❌ " + (msg.error || "Seed failed"), false);
+      }
+    }
+    if (msg.event === "ui_list_users" && msg.ok) renderUsers(msg.data.users);
+    if (msg.event === "ui_assign_agent" || msg.event === "ui_unassign_agent") {
+      if (msg.ok) ws.send({ event: "ui_list_users", data: { token } });
+      else toast("❌ " + (msg.error || "Action failed"), false);
+    }
+  }
+});
+
+function renderAgents(agents) {
+  const el = document.getElementById("agents-list");
+  if (!agents.length) { el.innerHTML = '<span style="color:var(--muted);font-size:13px;">No agents registered.</span>'; return; }
+  el.innerHTML = agents.map(a => `
+    <div class="chip" style="background:#21262d;border-color:var(--border);color:var(--text);">
+      <span style="color:${a.connected ? 'var(--ok)' : 'var(--muted)'}">●</span>
+      ${a.hostname || a.agent_id}
+    </div>
+  `).join("");
+}
+
+function renderUsers(users) {
+  const tbody = document.querySelector("#users-table tbody");
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td>
+        <div style="font-weight:600;">${u.username}</div>
+        <div style="font-size:11px;color:var(--muted);">${u.created_at || ""}</div>
+      </td>
+      <td><span class="badge badge-${u.role}">${u.role}</span></td>
+      <td>
+        ${u.role === 'admin' ? '<i style="color:var(--muted)">All agents</i>' : `
+          <div class="assign-list">
+            ${(u.assigned_hostnames || []).map(h => `
+              <span class="chip">${h}
+                <button onclick="unassign('${u.username}','${h}')" title="Remove">✕</button>
+              </span>
+            `).join("")}
+          </div>
+          <form class="assign-form" onsubmit="event.preventDefault();assign('${u.username}',this.hn.value);this.hn.value='';">
+            <input name="hn" type="text" placeholder="Add hostname…" required/>
+            <button class="btn btn-success btn-sm" type="submit">Assign</button>
+          </form>
+        `}
+      </td>
+    </tr>
+  `).join("");
+}
+
+window.assign = (u, h) => ws.send({ event: "ui_assign_agent", data: { token, username: u, hostname: h } });
+window.unassign = (u, h) => {
+  if (confirm(`Remove ${h} from ${u}?`)) ws.send({ event: "ui_unassign_agent", data: { token, username: u, hostname: h } });
+};
+
+ws.connect();
+</script>
+</body>
+</html>

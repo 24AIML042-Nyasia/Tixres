@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tixres – Guidance Library</title>
+    <meta name="description" content="Browse and search all resolution guidance for Tixres incidents." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <style>
+      /* ── Library-specific styles ───────────────────────────── */
+      .lib-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+
+      .lib-title { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+      .lib-sub   { font-size: 14px; color: #8b949e; }
+
+      /* search bar */
+      .search-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+        align-items: center;
+      }
+
+      .search-bar input {
+        flex: 1;
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        color: #e6edf3;
+        font-family: inherit;
+        font-size: 14px;
+        padding: 10px 14px;
+        outline: none;
+        transition: border-color .2s, box-shadow .2s;
+      }
+      .search-bar input:focus {
+        border-color: #1f6feb;
+        box-shadow: 0 0 0 3px rgba(31,111,235,.2);
+      }
+
+      .results-count {
+        font-size: 13px;
+        color: #8b949e;
+        white-space: nowrap;
+      }
+
+      /* filter chips */
+      .filter-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+      }
+
+      .chip {
+        padding: 4px 12px;
+        border-radius: 20px;
+        border: 1px solid #30363d;
+        background: transparent;
+        color: #8b949e;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all .15s;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+      }
+      .chip:hover     { border-color: #58a6ff; color: #58a6ff; }
+      .chip.active    { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+      .chip.chip-CRITICAL { border-color: #f85149; }
+      .chip.chip-CRITICAL.active { background: #f85149; border-color: #f85149; }
+      .chip.chip-HIGH     { border-color: #d29922; }
+      .chip.chip-HIGH.active { background: #d29922; border-color: #d29922; }
+      .chip.chip-MEDIUM   { border-color: #1f6feb; }
+      .chip.chip-LOW      { border-color: #3fb950; }
+      .chip.chip-LOW.active { background: #3fb950; border-color: #3fb950; }
+
+      /* guidance cards grid */
+      .guidance-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 18px;
+      }
+
+      .g-card {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 12px;
+        padding: 22px;
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        transition: border-color .2s, transform .15s, box-shadow .2s;
+      }
+      .g-card:hover {
+        border-color: #58a6ff;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,.3);
+      }
+
+      /* left colour stripe */
+      .g-card::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 4px;
+        border-radius: 12px 0 0 12px;
+      }
+      .g-card[data-priority="CRITICAL"]::before { background: #f85149; }
+      .g-card[data-priority="HIGH"]::before     { background: #d29922; }
+      .g-card[data-priority="MEDIUM"]::before   { background: #1f6feb; }
+      .g-card[data-priority="LOW"]::before      { background: #3fb950; }
+
+      .g-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        gap: 10px;
+      }
+
+      .g-title {
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+
+      .priority-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .prio-CRITICAL { background: rgba(248,81,73,.15);  color: #f85149; border: 1px solid rgba(248,81,73,.3); }
+      .prio-HIGH     { background: rgba(210,153,34,.15); color: #d29922; border: 1px solid rgba(210,153,34,.3); }
+      .prio-MEDIUM   { background: rgba(31,111,235,.15); color: #58a6ff; border: 1px solid rgba(31,111,235,.3); }
+      .prio-LOW      { background: rgba(63,185,80,.15);  color: #3fb950; border: 1px solid rgba(63,185,80,.3); }
+
+      .g-desc {
+        font-size: 13px;
+        color: #8b949e;
+        line-height: 1.55;
+        margin-bottom: 14px;
+      }
+
+      .g-key {
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 11px;
+        color: #58a6ff;
+        background: rgba(31,111,235,.08);
+        border: 1px solid rgba(31,111,235,.15);
+        border-radius: 4px;
+        padding: 2px 6px;
+        display: inline-block;
+        margin-bottom: 12px;
+      }
+
+      .g-steps-preview {
+        font-size: 12px;
+        color: #6e7681;
+        margin-top: 4px;
+      }
+
+      .steps-count-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: #8b949e;
+        background: #21262d;
+        border-radius: 6px;
+        padding: 3px 8px;
+      }
+
+      /* ── Detail panel (right slide-in) ─────────────────────── */
+      .detail-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.5);
+        z-index: 100;
+        backdrop-filter: blur(3px);
+      }
+      .detail-overlay.open { display: block; }
+
+      .detail-panel {
+        position: fixed;
+        right: 0; top: 0; bottom: 0;
+        width: min(560px, 95vw);
+        background: #161b22;
+        border-left: 1px solid #30363d;
+        z-index: 101;
+        overflow-y: auto;
+        padding: 32px 28px;
+        transform: translateX(100%);
+        transition: transform .3s cubic-bezier(.4,0,.2,1);
+      }
+      .detail-panel.open { transform: translateX(0); }
+
+      .detail-close {
+        position: absolute;
+        top: 16px; right: 16px;
+        background: #21262d;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        color: #8b949e;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        padding: 4px 10px;
+        transition: color .15s;
+      }
+      .detail-close:hover { color: #e6edf3; }
+
+      .detail-title {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        padding-right: 40px;
+      }
+
+      .detail-desc {
+        font-size: 14px;
+        color: #8b949e;
+        line-height: 1.6;
+        margin: 16px 0 24px;
+      }
+
+      .steps-heading {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .6px;
+        color: #8b949e;
+        margin-bottom: 14px;
+      }
+
+      .step-item {
+        display: flex;
+        gap: 14px;
+        margin-bottom: 18px;
+        align-items: flex-start;
+      }
+
+      .step-num {
+        width: 26px; height: 26px;
+        border-radius: 50%;
+        background: #1f6feb;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+
+      .step-text {
+        font-size: 14px;
+        color: #c9d1d9;
+        line-height: 1.55;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        color: #8b949e;
+      }
+      .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+      .empty-state p { font-size: 15px; }
+
+      /* nav */
+      .nav-links { display: flex; gap: 20px; align-items: center; }
+      .nav-links a { color: #8b949e; text-decoration: none; font-size: 13px; transition: color .15s; }
+      .nav-links a:hover { color: #e6edf3; }
+      .nav-links a.active { color: #fff; font-weight: 600; }
+
+      /* user pill */
+      .user-pill {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: #21262d;
+        border: 1px solid #30363d;
+        border-radius: 20px;
+        padding: 4px 12px 4px 4px;
+        font-size: 12px;
+        color: #8b949e;
+        cursor: pointer;
+        transition: border-color .15s;
+        margin-left: 8px;
+      }
+      .user-pill:hover { border-color: #58a6ff; }
+
+      .user-avatar {
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #1f6feb, #388bfd);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .role-badge {
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+        padding: 1px 5px;
+        border-radius: 3px;
+        letter-spacing: .3px;
+      }
+      .role-admin { background: rgba(210,153,34,.2); color: #d29922; }
+      .role-user  { background: rgba(31,111,235,.15); color: #58a6ff; }
+    </style>
+  </head>
+  <body>
+    <div class="dash">
+      <div class="topbar">
+        <div class="topbar-left" style="flex:1;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="status-dot"></div>
+            <span class="logo">Tixres</span>
+          </div>
+          <nav class="nav-links">
+            <a href="index.html">Dashboard</a>
+            <a href="alerts.html">Alerts</a>
+            <a href="incidents.html">Incidents</a>
+            <a href="guidance.html" class="active">Guidance</a>
+            <a href="rollups.html">Metrics</a>
+          </nav>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="user-pill" id="user-pill" onclick="handleLogout()">
+            <div class="user-avatar" id="user-avatar">?</div>
+            <span id="user-name">—</span>
+            <span class="role-badge" id="role-badge">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding: 0 0 32px;">
+        <div class="lib-header">
+          <div>
+            <h1 class="lib-title">Guidance Library</h1>
+            <p class="lib-sub">Browse and search all resolution playbooks for known anomaly types.</p>
+          </div>
+        </div>
+
+        <div class="search-bar">
+          <input id="search-input" type="search" placeholder="🔍  Search by title, key, or description…" autocomplete="off" />
+          <button id="add-guidance-btn" class="btn btn-primary" style="display:none; padding: 8px 16px; font-size: 13px;">+ Add Guidance</button>
+          <span class="results-count" id="results-count">Loading…</span>
+        </div>
+
+        <div class="filter-row" id="filter-row">
+          <button class="chip active" data-prio="all">All</button>
+          <button class="chip chip-CRITICAL" data-prio="CRITICAL">Critical</button>
+          <button class="chip chip-HIGH"     data-prio="HIGH">High</button>
+          <button class="chip chip-MEDIUM"   data-prio="MEDIUM">Medium</button>
+          <button class="chip chip-LOW"      data-prio="LOW">Low</button>
+        </div>
+
+        <div class="guidance-grid" id="guidance-grid">
+          <div class="empty-state" style="grid-column:1/-1;">
+            <div class="icon">⏳</div>
+            <p>Connecting to server…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail slide-in panel -->
+    <div class="detail-overlay" id="detail-overlay" onclick="closeDetail()"></div>
+    <div class="detail-panel" id="detail-panel">
+      <button class="detail-close" onclick="closeDetail()">✕</button>
+      <div id="detail-content"></div>
+    </div>
+
+    <script type="module">
+      import { createWsClient } from "./js/ws.js";
+      import { WS_URL } from "./js/config.js";
+
+      // ── Auth guard ───────────────────────────────────────────
+      const token = sessionStorage.getItem("sysmon_token");
+      const username = sessionStorage.getItem("sysmon_username") || "unknown";
+      const role = sessionStorage.getItem("sysmon_role") || "user";
+
+      if (!token) {
+        location.href = "login.html?next=guidance.html";
+      }
+
+      // Populate user pill
+      document.getElementById("user-name").textContent = username;
+      document.getElementById("user-avatar").textContent = username[0].toUpperCase();
+      const rb = document.getElementById("role-badge");
+      rb.textContent = role;
+      rb.className = `role-badge role-${role}`;
+
+      if (role === "admin") {
+        document.getElementById("add-guidance-btn").style.display = "block";
+      }
+
+      window.handleLogout = () => {
+        sessionStorage.clear();
+        location.href = "login.html";
+      };
+
+      document.getElementById("add-guidance-btn").onclick = () => openEditor();
+
+      // ── State ────────────────────────────────────────────────
+      let allGuidance = [];
+      let activeFilter = "all";
+      let searchTerm   = "";
+
+      const ws = createWsClient(WS_URL, {
+        onOpen: () => {
+          ws.send({ event: "ui_list_guidance", data: { search: "" } });
+        },
+        onMessage: (msg) => {
+          if (msg.event === "ui_list_guidance" && msg.ok) {
+            allGuidance = msg.data.guidance || [];
+            render();
+          } else if ((msg.event === "ui_upsert_guidance" || msg.event === "ui_delete_guidance") && msg.ok) {
+            ws.send({ event: "ui_list_guidance", data: { search: "" } });
+            closeDetail();
+          }
+        },
+        onError: () => {
+          document.getElementById("guidance-grid").innerHTML =
+            `<div class="empty-state" style="grid-column:1/-1;">
+               <div class="icon">⚠️</div>
+               <p>Cannot connect to the server.</p>
+             </div>`;
+        },
+      });
+      ws.connect();
+
+      // ── Search & filter ──────────────────────────────────────
+      const searchInput = document.getElementById("search-input");
+      searchInput.addEventListener("input", () => {
+        searchTerm = searchInput.value.toLowerCase();
+        render();
+      });
+
+      document.getElementById("filter-row").addEventListener("click", (e) => {
+        const chip = e.target.closest(".chip");
+        if (!chip) return;
+        activeFilter = chip.dataset.prio;
+        document.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        render();
+      });
+
+      // ── Render ───────────────────────────────────────────────
+      function render() {
+        let items = allGuidance;
+
+        if (activeFilter !== "all") {
+          items = items.filter(g => g.priority === activeFilter);
+        }
+        if (searchTerm) {
+          items = items.filter(g =>
+            g.key.toLowerCase().includes(searchTerm) ||
+            (g.title || "").toLowerCase().includes(searchTerm) ||
+            (g.description || "").toLowerCase().includes(searchTerm) ||
+            (g.steps || []).some(s => s.toLowerCase().includes(searchTerm))
+          );
+        }
+
+        const count = items.length;
+        const total = allGuidance.length;
+        document.getElementById("results-count").textContent =
+          count === total
+            ? `${total} playbook${total !== 1 ? "s" : ""}`
+            : `${count} of ${total} playbooks`;
+
+        const grid = document.getElementById("guidance-grid");
+
+        if (items.length === 0) {
+          grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+            <div class="icon">🔍</div>
+            <p>No guidance found${searchTerm ? ` for "<strong>${escHtml(searchTerm)}</strong>"` : ""}.</p>
+          </div>`;
+          return;
+        }
+
+        grid.innerHTML = items.map((g, idx) => {
+          const steps = g.steps || [];
+          const preview = steps.length
+            ? escHtml(steps[0].slice(0, 80)) + (steps[0].length > 80 ? "…" : "")
+            : "";
+          return `
+            <div class="g-card" data-priority="${g.priority}" data-idx="${idx}" onclick="openDetail(${idx})">
+              <div class="g-card-top">
+                <div class="g-title">${escHtml(g.title || g.anomaly_type)}</div>
+                <span class="priority-badge prio-${g.priority}">${g.priority}</span>
+              </div>
+              <div class="g-key">${escHtml(g.anomaly_type)}</div>
+              <div class="g-desc">${escHtml(g.description || "")}</div>
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div class="steps-count-badge">
+                  <span>📋</span>
+                  <span>${steps.length} step${steps.length !== 1 ? "s" : ""}</span>
+                </div>
+                ${preview ? `<div class="g-steps-preview">${preview}</div>` : ""}
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      // ── Detail panel ─────────────────────────────────────────
+      function openDetail(idx) {
+        const g = allGuidance[idx];
+        if (!g) return;
+        const steps = g.steps || [];
+        const panel = document.getElementById("detail-panel");
+        const overlay = document.getElementById("detail-overlay");
+
+        let adminActions = "";
+        if (role === "admin") {
+          adminActions = `
+            <div style="margin-top: 32px; display: flex; gap: 12px; border-top: 1px solid #30363d; padding-top: 24px;">
+              <button class="btn btn-secondary" style="flex:1;" onclick="openEditor(${idx})">Edit Playbook</button>
+              <button class="btn btn-danger" style="padding: 8px 12px;" onclick="handleDelete('${g.anomaly_type}')">🗑️</button>
+            </div>
+          `;
+        }
+
+        document.getElementById("detail-content").innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+            <span class="priority-badge prio-${g.priority}" style="font-size:12px;">${g.priority}</span>
+            <code style="font-size:11px; color:#58a6ff;">${escHtml(g.anomaly_type)}</code>
+          </div>
+          <div class="detail-title">${escHtml(g.title || g.anomaly_type)}</div>
+          <div class="detail-desc">${escHtml(g.description || "")}</div>
+          <div class="steps-heading">Resolution Steps</div>
+          <div>
+            ${steps.map((step, i) => `
+              <div class="step-item">
+                <div class="step-num">${i + 1}</div>
+                <div class="step-text">${escHtml(step)}</div>
+              </div>
+            `).join("")}
+          </div>
+          ${adminActions}
+        `;
+
+        overlay.classList.add("open");
+        panel.classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      window.openDetail = openDetail;
+
+      function openEditor(idx = -1) {
+        const g = idx >= 0 ? allGuidance[idx] : { anomaly_type: "", title: "", description: "", priority: "LOW", steps: [] };
+        const panel = document.getElementById("detail-panel");
+        const overlay = document.getElementById("detail-overlay");
+
+        document.getElementById("detail-content").innerHTML = `
+          <div class="detail-title">${idx >= 0 ? 'Edit Guidance' : 'New Guidance'}</div>
+          <div style="margin-top:20px;">
+            <label style="display:block; font-size:12px; color:#8b949e; margin-bottom:6px;">Anomaly Type (Key)</label>
+            <input id="edit-key" type="text" class="search-bar" style="width:100%; margin-bottom:16px;" value="${escHtml(g.anomaly_type)}" ${idx >= 0 ? 'disabled' : ''}>
+            
+            <label style="display:block; font-size:12px; color:#8b949e; margin-bottom:6px;">Title</label>
+            <input id="edit-title" type="text" class="search-bar" style="width:100%; margin-bottom:16px;" value="${escHtml(g.title)}">
+            
+            <label style="display:block; font-size:12px; color:#8b949e; margin-bottom:6px;">Priority</label>
+            <select id="edit-priority" class="search-bar" style="width:100%; margin-bottom:16px; background:#161b22;">
+              <option value="CRITICAL" ${g.priority === 'CRITICAL' ? 'selected' : ''}>CRITICAL</option>
+              <option value="HIGH" ${g.priority === 'HIGH' ? 'selected' : ''}>HIGH</option>
+              <option value="MEDIUM" ${g.priority === 'MEDIUM' ? 'selected' : ''}>MEDIUM</option>
+              <option value="LOW" ${g.priority === 'LOW' ? 'selected' : ''}>LOW</option>
+            </select>
+
+            <label style="display:block; font-size:12px; color:#8b949e; margin-bottom:6px;">Description</label>
+            <textarea id="edit-desc" class="search-bar" style="width:100%; height:80px; margin-bottom:16px; font-family:inherit; resize:vertical;">${escHtml(g.description)}</textarea>
+
+            <label style="display:block; font-size:12px; color:#8b949e; margin-bottom:6px;">Steps (One per line)</label>
+            <textarea id="edit-steps" class="search-bar" style="width:100%; height:120px; margin-bottom:24px; font-family:inherit; resize:vertical;">${(g.steps || []).join('\n')}</textarea>
+
+            <div style="display:flex; gap:12px;">
+              <button class="btn btn-primary" style="flex:1;" onclick="handleSave()">Save Guidance</button>
+              <button class="btn btn-secondary" onclick="openDetail(${idx})">${idx >= 0 ? 'Cancel' : 'Discard'}</button>
+            </div>
+          </div>
+        `;
+
+        overlay.classList.add("open");
+        panel.classList.add("open");
+      }
+      window.openEditor = openEditor;
+
+      window.handleSave = () => {
+        const data = {
+            token: sessionStorage.getItem("sysmon_token"),
+            anomaly_type: document.getElementById("edit-key").value,
+            title: document.getElementById("edit-title").value,
+            description: document.getElementById("edit-desc").value,
+            priority: document.getElementById("edit-priority").value,
+            steps: document.getElementById("edit-steps").value.split('\n').filter(s => s.trim())
+        };
+        ws.send({ event: "ui_upsert_guidance", data });
+      };
+
+      window.handleDelete = (key) => {
+        if (confirm(`Are you sure you want to delete guidance for "${key}"?`)) {
+            ws.send({ event: "ui_delete_guidance", data: { token: sessionStorage.getItem("sysmon_token"), anomaly_type: key } });
+        }
+      };
+
+      window.closeDetail = () => {
+        document.getElementById("detail-overlay").classList.remove("open");
+        document.getElementById("detail-panel").classList.remove("open");
+        document.body.style.overflow = "";
+      };
+
+      // Keyboard: Escape to close
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") window.closeDetail();
+      });
+
+      function escHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+    </script>
+  </body>
+</html>
